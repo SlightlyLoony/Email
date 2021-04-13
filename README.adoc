@@ -1,0 +1,96 @@
+== What is Email?
+
+_Email_ is general purpose email service provider module, handling both outbound and inbound emails.  It does _not_ provide an email service with SMTP, POP3, IMAP4, and so on; it relies on third-party providers such as GMail or Amazon SES for those.  It is _not_ a standalone program, but rather an embedded service provider with a programmatic interface that your code can call.
+
+== Definitions of terms used in this document
+
+_bulk email_: an email that is sent to multiple recipients.  This can be done either by addressing multiple recipients in a single email, or by sending an identical email to multiple recipients one at a time.  The defining characteristic of bulk email is that multiple recipients get the _identical_ email.
+
+_transactional email_: an email that is sent to a single recipient, and is customized for that recipient.  Transactional emails may include confidential information and recipient-specific links, attachments, text, graphics, etc.
+
+
+== Why does the world need Email?
+
+I'm not sure the world actually does need _Email_, but I sure did!  I wanted to integrate email with some of my own applications that do these things:
+
+* Send transactional emails.  For instance, personalized weather reports, system status to administrators, etc.  For these emails, I need more than just the email address -- I need some way to get the personalized content.
+* Send bulk emails.  For instance, daily weather reports.
+
+Then once I started to actually implement these functions, I realized that I want my email to work with multiple third-party providers -- for reliability, lower cost, and sometimes for features.  For example, if I have 5000 transactional emails per month, I can send chunks of that to four or five providers, staying below the "now you have to pay" thresholds on all of them.  If I sent them all via a single provider, I'd have to pay for most of them.
+
+
+== Dependencies
+
+_Email_ has several dependencies:
+
+* _Util_ is a utilities module the author also wrote, freely available from https://github.com/SlightlyLoony/Util[here].
+* _JSON_ is the bog-standard Java JSON module, freely available from https://github.com/stleary/JSON-java[here].
+* _Java Mail_ is the bog-standard Java email provider, freely available from https://javaee.github.io/javamail/[here].  It's dependency the Java Activation package is available https://github.com/javaee/activation[here].
+* _JSoup_ is an open-source Java HTML parser, available https://jsoup.org/[here].
+
+== Why is Email's code so awful?
+
+The author is a retired software and hardware engineer who did this just for fun, and who (so far, anyway) has no code reviewers to upbraid him. Please feel free to fill in this gap! You may contact the author at link:mailto:[tom@dilatush.com].
+
+== Transfer directories
+
+_Email_ has the ability to send and receive emails with attachments.  When sending email attachments, the attachment data can come from either an object on a web server (via a URL) or a file in a _transfer directory_ that is readable by _Email_ (and in the case of an automatically deleting transfer directory, it must also be writable by _Email_.  When receiving email attachments, the data must go to a transfer directory that is writable by _Email_.  Transfer directories are specified by the _Email_ configuration file.
+
+Each transfer directory has several attributes:
+[cols="<,<"]
+|===
+|Attribute Name |Purpose
+
+|name |The short name of the transfer directory.  This name is for human reference only, and is not part of the path to the directory.  It must follow the general rules of an identifier (on word, letters, numerals, and underscore).
+|path |The absolute path to the transfer directory.  This path _must_ begin with a `/`.
+|mode |The mode (`READ_ONLY`, `READ_WRITE`, `WRITE_ONLY`, or `READ_AUTO`) for the transfer directory.  See below for details)
+|===
+
+The possible operational modes:
+
+* `READ_ONLY` : A read-only transfer directory, usable for sending attachments but not for receiving them.  After an attachment is sent from this directory, the file remains in the directory.
+* `READ_AUTO` : An automatically deleting read-only transfer directory, usable for sending attachments but not for receiving them.  After an attachment is sent from this directory, the file is automagically deleted.
+* `READ_WRITE`: A read/write transfer directory, usable for both sending and receiving attachments.
+* `WRITE_ONLY`: A write-only transfer directory, usable for receiving attachments, but not for sending them.
+
+== Some notes on email formatting when sending
+
+The subject line and plain text email bodies are straightforward: they're encoded in UTF-8, and there are no other considerations.
+
+HTML mail bodies have some important additional features: the ability to embed inline images, and the ability to embed attachments.  In both cases the actual data to be embedded can come from either of two places:
+
+* _Web Server_: This is specified with an ordinary URL, starting with either `http://` or `https://` that addresses the image or file to be embedded.  If the specified URL is invalid (for any reason, including that the addressed object does not exist), an error will occur when attempting to send the email.  Note that objects read from a web server may be dynamically generated; there is no requirement that they be a static resource.
+* _Transfer Directory_: This is specified with a special transfer URL, starting with `transfer://<transfer directory name>/<relative path>`, that specifies the transfer directory and relative path within the transfer directory to the object being inlined or attached.  If the file path is invalid (for any reason, including that the addressed object does not exist), an error will occur when attempting to send the email.  For example, the URL `transfer://horse/grooming.doc` refers to an object within the transfer directory named `horse` in a file named `grooming.doc`.  Transfer directories may contain subdirectories to any depth, so the URLs may be arbitrarily long.
+
+Inline embedded images are specified in an `<img/>` tag, via the `src` attribute.  For example, the tag `<img width="10" src="https://something.com/excellent.jpg"/>` specifies an embedded image that will be read from the given URL.  All the rest of the details of embedding the image are handled by the email sender.  It's worth noting that if a given image is used multiple times in the email, it will only be embedded once.
+
+Attachments are specified with the custom `<attach-file/>` tag, via the `src` attribute.  For example, the tag `attach-file src="file://horse/dropzone/excellent.doc" />` will attach a file named `excellent.doc` (the `.auto` part is stripped).  Note that `<attach-file/>` tags are deleted from the HTML that is actually sent in the email.
+
+== Some notes on receiving emails
+
+When _Email_ receives emails, it extracts the text from the plain text if possible.  If the email only has text in an HTML part, it extracts that text instead.  The text extracted (from either source) is then processed through an ordered list of _email routing rules_ that identify where the received email should be sent.  If no routing rule matches, the received email is logged and discarded.  If the sender (as identified in the email headers via IP address) is logged into an email session, then there will be a dynamic routing rule (processed before any static rules) that identifies where the email should be sent.
+
+When an email _does_ match an email routing rule, several things happen:
+
+* A standard MOP message (the _email received_ message) is constructed.  This message contains the sender's reported 'from' address, the subject line, the text extracted from the body of the email, the number of attachments (which of course may be zero), the session ID (if the email is part of a session), and the IP address of the sender.  This message will be addressed according to the routing rule, which specifies the destination post office and mailbox.
+
+* If there are any attachments, they are stored in a temporary directory created for each received email, and stored in the transfer directory specified in the matched email routing rule.  The attachments are stored in that directory, with the name given to them in the email.  The temporary directory name is added to the email received message.
+
+== How is Email licensed?
+
+Email is licensed with the quite permissive MIT license:
+
+....
+Created: November 16, 2020
+Author: Tom Dilatush link:mailto:tom@dilatush.com
+Github: https://github.com/SlightlyLoony/Email
+License: MIT
+
+Copyright 2020, 2021 by Tom Dilatush (aka "SlightlyLoony")
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE A AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+....
