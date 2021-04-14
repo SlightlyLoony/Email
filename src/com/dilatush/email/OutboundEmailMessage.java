@@ -1,7 +1,7 @@
 package com.dilatush.email;
 
-import javax.mail.internet.AddressException;
-import javax.mail.internet.InternetAddress;
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 
 /**
  * Encapsulates an email message, including both plain text and HTML mail with optional embedded images.  An embedded image in the HTML body is
@@ -10,7 +10,7 @@ import javax.mail.internet.InternetAddress;
  *
  * @author Tom Dilatush  tom@dilatush.com
  */
-public record OutboundEmailMessage( InternetAddress from, String subject, String text, String html ) {
+public record OutboundEmailMessage(InternetAddress from, String subject, String text, String html ) {
 
     public OutboundEmailMessage {
 

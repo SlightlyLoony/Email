@@ -1,7 +1,8 @@
 package com.dilatush.email;
 
-import javax.mail.*;
-import javax.mail.internet.MimeMultipart;
+import jakarta.mail.*;
+import jakarta.mail.internet.MimeMultipart;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;

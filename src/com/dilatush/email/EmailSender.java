@@ -1,12 +1,12 @@
 package com.dilatush.email;
 
 import com.dilatush.util.Streams;
+import jakarta.activation.DataHandler;
+import jakarta.activation.FileDataSource;
+import jakarta.activation.URLDataSource;
+import jakarta.mail.*;
+import jakarta.mail.internet.*;
 
-import javax.activation.DataHandler;
-import javax.activation.FileDataSource;
-import javax.activation.URLDataSource;
-import javax.mail.*;
-import javax.mail.internet.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;

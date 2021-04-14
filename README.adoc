@@ -2,6 +2,148 @@
 
 _Email_ is general purpose email service provider module, handling both outbound and inbound emails.  It does _not_ provide an email service with SMTP, POP3, IMAP4, and so on; it relies on third-party providers such as GMail or Amazon SES for those.  It is _not_ a standalone program, but rather an embedded service provider with a programmatic interface that your code can call.
 
+== Some background on email
+
+When I first started working on this project, I had a mental model for email that turned out to be far, far too simple.  This section is a sort of primer on modern email, with an emphasis on the things that were new or surprising or unobvious to me.  Writing it all down helps embed it in my own mind, and may be useful for you, too.
+
+=== Email sending protocols
+
+https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol[SMTP] (Simple Mail Transfer Protocol) seems to be the only protocol in general use for sending email.  In that sense, it's pretty darned close to an actual standard, though there are annoying variants that one has to deal with in code.
+
+=== Email receiving protocols
+
+https://en.wikipedia.org/wiki/Post_Office_Protocol[POP3] (Post Office Protocol version 3) and https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol[IMAP] (Internet Message Access Protocol) are the only two in common use.  POP3 is far older and less capable (for instance, it knows nothing about folders), and probably really shouldn't be used anymore.  In _Email_ I'm using IMAP.
+
+=== Email protocols in Java
+
+There are many projects out in the open-source world that implement some combination of SMTP, POP3, and IMAP, but there is one that absolutely dominates: https://www.oracle.com/java/technologies/javamail.html[JavaMail], actively developed at [Eclipse Foundation], who took over in 2017, and renamed it Jakarta Mail.  I've chosen Jakarta Mail (version 2.0.1) as the protocol implementation for _Email_.
+
+=== Email providers
+
+Many organizations host their own email servers, especially (and most unfortunately) with Micrsoft Exchange (hit with https://krebsonsecurity.com/2021/03/at-least-30000-u-s-organizations-newly-hacked-via-holes-in-microsofts-email-software/[quite the hacker problem in 2021]).  Most individuals and smaller companies use third-party email providers, the dominant one of which is https://en.wikipedia.org/wiki/Gmail[gmail].  Any of these providers can be used with _Email_ so long as Jakarta Mail can be configured to support it -- and so far I've not found any email providers that Jakarta Mail _couldn't_ support.
+
+=== The components of an email
+
+There are some basic components of email that we all are familiar with.  Well, that we all _think_ we're familiar with:
+
+* Address: The _To_, _CC_, and _BCC_ that together determine who receives the email.
+* Subject: The brief little one-liner that is intended to give the recipient some clue about what the email concerns.
+* Body: The actual content of the email.
+
+==== Address
+
+Most of us are by now quite familiar with these two valid formats:
+....
+mailbox@domain  (like "tom@dilatush.com")
+Display Name<mailbox@domain>  (like "Tom Dilatush<tom@dilatush.com>")
+....
+
+It may surprise you to know that there are actually quite a few other details.  https://en.wikipedia.org/wiki/Email_address[Wikipedia] has a good article about them.
+
+The biggest surprise for me was finding out that the mailbox part is technically case-sensitive -- so `tom@dilatush.com` and `Tom@dilatush.com` should be two independent email addresses.  I'm not sure I've ever seen that in the while, and apparently both server and client support is spotty, but there it is.
+Also I discovered that the mailbox part cannot be more than 64 characters long.
+
+All three address groups (To, CC, and BCC) can accept a number of email addresses, including zero (although if all three have no addresses your email isn't going _anywhere_!).  The maximum number of addressees in each group is dependent on the SMTP provider, and there doesn't seem to be any convention to this, much less a standard.  In every case I've seen personally, you can have well over 100 addresses in each of those address groups.  Some vendors (I'm looking at you, gmail!) limit the total number in all three, rather than having a limit in each address group.
+
+I tend to think of email addresses as belonging to a _person_, one individual -- but that is not always the case.  I've run into quite a few systems that use email addresses as identifiers, but this turns out to be quite problematic.  Here are some common circumstances that will illuminate why:
+
+* People change their email addresses.  I used to have a Yahoo email address, then I had a generic gmail address, and now I have a gmail address that's on my own domain.  How confusing!
+* People may have multiple email addresses (I have 11 at the moment, and have had as many as 30).
+* The email address may be for an email group, not an individual.  Many email servers support email groups.  Each member of the group has their own inbox, but if an email is received at the group's collective address, a copy of that email goes to each member of the group (and the sender has no way of knowing who actually gets that email).
+* The email address may be for a machine or system, and not a person at all.  There are many systems that use email for inter-process communications, especially where connectivity is spotty.  Some also use it as a way of getting input from users, and such a system is one of the main reasons I'm writing this package.
+* The email address may be shared.  I know several couples who have but a single email address, and they actually have a single inbox that both of them use.  Shared email addresses are especially common in organizations, as an alternative to an email group.
+* The email address may be for an organization, not an individual.  For instance, many companies have generic email addresses like `support@greenbanana.com` or `sales@rainmaker.com`.  These addresses may actually be for a group within the organization, it may be a shared inbox, or they may go to an individual -- and that individual may change over time.
+
+The upshot of this is that you really are not safe in thinking about an email address being some sort of unique identifier of a person.  The notions of identity and of email addresses are certainly connected, just not one-to-one -- it really is a many-to-many relationship.
+
+Why does this matter to you?  Well, if you're sending emails with personalized information, it means your system really should not use an email address as a unique identifier of a person (or organization, or machine).  For all the reasons above, your system should separate the notions of identities and email addresses, but maintain connections between them.
+
+==== Subject
+
+This is the simplest component of an email, but even _it_ has its complications!  While there is no maximimum length that I could find, there is a practical limit: most inboxes on computer clients only show the first 50 or 60 characters of the subject line (generally truncating with an ellipsis, like `This is my WAY too long...`).  Many mobile email clients, when used on a phone, only show 20 or 25 characters.  These limits mean that short subject lines are definitely better, and that the information in them should be front-loaded, so that if some of the subject line _is_ truncated, the poor user can still figure out what the mail is about.
+
+HTML is not disallowed in the subject line, but I've never found an email client that would actually render it.  The RFCs that control email format _still_ specify the subject line as ASCII, but you can control the character encoding of an email, including on the subject line.  _Email_ defaults to UTF-8, but you can change that if you want something different.
+
+==== Body
+
+The body of a modern email can be just ridiculously complex.  This complexity was all enabled by a standard called https://en.wikipedia.org/wiki/MIME[MIME] (Multipurpose Internet Mail Extensions).  Prior to the advent of MIME, email bodies were just plain ASCII text -- ah, those were such simple days!  MIME basically standardizes a way of encoding things other than ASCII-encoded text _into_ plain ASCII-encoded text -- things such as HTML, images, audio, video, attachments, and much more.
+
+The body of a modern email can also be very simple: just a string of ASCII characters.  That's how email started out, and that sort of simple email actually still works just fine.  However, the result is not the fancy thing we're all used to in our email these days.
+
+Much more typical today -- and most likely, the kind of email you'd like to send -- is an email composed in HTML, perhaps with photographs, graphics, and possibly even videos.  You'd still want it to work for a recipient who had an email client that couldn't handle HTML, though.  You can do all of this by using MIME, which is fully supported by _Email_ and Jakarta Mail. Suppose, for instance, that you wanted to create an email that used HTML to format the body, with two _inline_ images (more on that later), and a plain text message for those recipients who couldn't read HTML email.  To do this, you'd create a tree of MIME nodes that looked like this:
+....
+               (a) multipart: alternative
+                   |                    |
+        b) content: text/plain      (c) multipart: related
+                                        |      |       |
+                                        |      |       +-- (f) content: image/jpeg
+                                        |      +-- (e) content: image/png
+                                        +-- (d) context: text/html
+....
+You can see there are two kinds of nodes: "multipart" nodes that are simply nodes that contain other nodes, and "content" nodes (that are always leaf nodes) that carry some kind of content.  Taking it one piece at a time:
+
+a.  A multipart whose children are alternative "views" of the email.  In this case, a plain text view and an HMTL view.  Email clients are supposed to prefer the last alternative that they're capable of displaying.
+b.  The plain text content, which should only be displayed in email clients that cannot display HTML.
+c.  A multipart whose children are all related to each other -- in this case, they're all pieces of the HTML email.
+d.  The HTML document, which among other things has `<img/>` tags that refer to the two images (following), via specially formed URLs.
+e.  One of the images referred to by the HTML document.
+f.  The other image referred to by the HTML document.
+
+Here's what the MIME document looks like for the MIME tree outlined above, except that the encoded image data is elided to keep this to a reasonable length:
+****
+MIME-Version: +
+1.0 Content-Type: multipart/alternative; boundary="[red]#----=_Part_1_1911152052.1618240895083#"
+
+--[red]#----=_Part_1_1911152052.1618240895083# +
+Content-Type: text/plain; charset=UTF-8 +
+Content-Transfer-Encoding: 7bit +
+
+Who cares what I say in here? +
+--[red]#----=_Part_1_1911152052.1618240895083# +
+Content-Type: multipart/related; boundary="[blue]#----=_Part_0_1644231115.1618240895077#" +
+
+--[blue]#----=_Part_0_1644231115.1618240895077# +
+Content-Type: text/html; charset=UTF-8 +
+Content-Transfer-Encoding: 7bit +
+
+<html> +
+    <p> +
+       <img width="20" src="cid:0"/> +
+       <img width="30" src="cid:1"/> +
+       <img width="40" src="cid:0"/> +
+       Look at the pretty image below! +
+    </p> +
+</html> +
+
+
+--[blue]#----=_Part_0_1644231115.1618240895077# +
+Content-Type: image/png +
+Content-Transfer-Encoding: base64 +
+Content-ID: <0> +
+Content-Disposition: inline +
+
+
+--[blue]#----=_Part_0_1644231115.1618240895077# +
+Content-Type: image/jpeg +
+Content-Transfer-Encoding: base64 +
+Content-ID: <1> +
+Content-Disposition: inline +
+
+
+--[blue]#----=_Part_0_1644231115.1618240895077#-- +
+--[red]#----=_Part_1_1911152052.1618240895083#-- +
+****
+A few things worth noting in this:
+
+* The colored bits are boundary markers, which are between the pieces of a multipart node.  There are three boundary markers (in red) for the alternative multipart -- the first containing the plain text alternative, and the second the HTML alternative.  There are four boundary markers (in blue) within the HTML alternative, marking the boundaries of the three related leaf nodes: the HTML document and the two images.  This all looks like gobbledegook at first glance, but it's actually not hard to read or understand.
+* The `<img/>` HTML tags have source URLs of the form "cis:<number>".  The "cis:" prefix is how the special URLs that refer to related items are formed.
+* Note how the HTML alternative comes _after_ the plain text alternative.  This order tells the email client to render the HTML alternative if it can, but to fall back to the plain text alternative if it cannot.
+
+
+==== Headers
+
+== Email address format
+
 == Definitions of terms used in this document
 
 _bulk email_: an email that is sent to multiple recipients.  This can be done either by addressing multiple recipients in a single email, or by sending an identical email to multiple recipients one at a time.  The defining characteristic of bulk email is that multiple recipients get the _identical_ email.
@@ -25,7 +167,7 @@ _Email_ has several dependencies:
 
 * _Util_ is a utilities module the author also wrote, freely available from https://github.com/SlightlyLoony/Util[here].
 * _JSON_ is the bog-standard Java JSON module, freely available from https://github.com/stleary/JSON-java[here].
-* _Java Mail_ is the bog-standard Java email provider, freely available from https://javaee.github.io/javamail/[here].  It's dependency the Java Activation package is available https://github.com/javaee/activation[here].
+* _Jakarta Mail_ is the bog-standard Java email provider, freely available from https://eclipse-ee4j.github.io/mail/[here].  It's dependency the Jakarta Activation package is available https://eclipse-ee4j.github.io/jaf/[here].
 * _JSoup_ is an open-source Java HTML parser, available https://jsoup.org/[here].
 
 == Why is Email's code so awful?

@@ -1,10 +1,10 @@
 package com.dilatush.email;
 
 import com.dilatush.util.config.AConfig;
+import jakarta.mail.Authenticator;
+import jakarta.mail.PasswordAuthentication;
+import jakarta.mail.Session;
 
-import javax.mail.Authenticator;
-import javax.mail.PasswordAuthentication;
-import javax.mail.Session;
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
