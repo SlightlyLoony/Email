@@ -1,8 +1,46 @@
 == What is Email?
 
-_Email_ is general purpose email service provider module, handling both outbound and inbound emails.  It does _not_ provide an email service with SMTP, POP3, IMAP4, and so on; it relies on third-party providers such as GMail or Amazon SES for those.  It is _not_ a standalone program, but rather an embedded service provider with a programmatic interface that your code can call.
+_Email_ is general purpose email service provider module, handling both outbound and inbound emails.  It does _not_ provide an email service with SMTP, POP3, IMAP4, and so on; it relies on third-party providers such as GMail or Amazon SES for those.  It is _not_ a standalone program, but rather an embedded service provider with a programmatic interface that your code can call to send or receive email.
 
-== Some background on email
+
+== Ways that automatically transmitted emails are used
+
+Probably the first thing that comes to mind with automated email are the marketing emails (spam!) that we all hate getting.  Generally speaking, these _bulk emails_ are identical emails that are sent out to many email addresses.  These are by far the simplest type of automated email -- when less than a few hundred destination email addresses are involved, this can be as simple as a single email being sent to a list of email addresses (any combination of To, CC, and BCC).
+
+Automated emails aren't necessarily bulk emails, however -- they can be emails that are specific to a single email address.  For example, Amazon sends me confirmations of the orders that I've placed with them.  Those emails go only (I hope!) to me, and the content is specific to me.  The industry term for this sort of email is _transactional email_, because most often they are part of a transaction of some kind.  However, the key element that distinguishes transactional email from bulk eail is that the former is customized (or, if you will, _personalized_), and the latter is generic; identical for every recipient.
+
+It's worth noting that there really isn't a bright line between the two kinds of automated emails.  For example, I'm working toward providing automated weather report emails to our local community.  I'll likely end up with a few hundred subscribers.  Some of them will get simple text reports, some will get simple graphical reports (with images of thermometers, rain gauges, etc.), some will get detailed reports that include historical information, and some will get still other kinds of reports.  Perhaps I'll end up with a half dozen or so kinds of reports.  So does that mean I have a half dozen different bulk emails going out daily?  Or does it mean that I have transactional email that happens to have only a half dozen variations, instead of one per person?  It doesn't really matter except for one technical detail: you'll likely use different capabilities within _Email_ if you approach it as several kinds of bulk mail versus transactional email with a few variations.
+
+While _Email_ certainly supports bulk mail, most of what it does is aimed at supporting transactional email -- the more complex of the two approaches.
+
+== A bit about email addresses and identities
+
+I tend to think of email addresses as belonging to a _person_, one individual -- but that is not always the case.  I've run into quite a few systems that use email addresses as identifiers, but this turns out to be quite problematic.  Here are some common circumstances that will illuminate why:
+
+* People change their email addresses.  I used to have a Yahoo email address, then I had a generic gmail address, and now I have a gmail address that's on my own domain.  How confusing!
+* People may have multiple email addresses (I have 11 at the moment, and have had as many as 30).
+* The email address may be for an email group, not an individual.  Many email servers support email groups.  Each member of the group has their own inbox, but if an email is received at the group's collective address, a copy of that email goes to each member of the group (and the sender has no way of knowing who actually gets that email).
+* The email address may be for a machine or system, and not a person at all.  There are many systems that use email for inter-process communications, especially where connectivity is spotty.  Some also use it as a way of getting input from users, and such a system is one of the main reasons I'm writing this package.
+* The email address may be shared.  I know several couples who have but a single email address, and they actually have a single inbox that both of them use.  Shared email addresses are especially common in organizations, as an alternative to an email group.
+* The email address may be for an organization, not an individual.  For instance, many companies have generic email addresses like `support@greenbanana.com` or `sales@rainmaker.com`.  These addresses may actually be for a group within the organization, it may be a shared inbox, or they may go to an individual -- and that individual may change over time.
+
+The upshot of this is that you really are not safe in thinking about an email address being some sort of unique identifier of a person.  The notions of identity and of email addresses are certainly connected, just not one-to-one -- it really is a many-to-many relationship.
+
+Why does this matter to you?  Well, if you're sending emails with personalized information, it means your system really should not use an email address as a unique identifier of a person (or organization, or machine).  For all the reasons above, your system should separate the notions of identities and email addresses, but maintain connections between them.
+
+== Plain email versus HTML email
+
+Almost all modern email clients -- whether on a computer, phone, or tablet -- are capable of rendering HTML mail, complete with colors, different fonts, images and photographs, etc.  Many people have never even _seen_ a plain text email!  However, email clients _do_ exist that are not capable of rendering HTML mail.  Most of these clients are used from the command line on systems like Linux, but not all of them.  I ran into someone a few weeks ago whose Windows laptop was running the Claws email client -- with no capability for displaying HTML mail.  He liked Claws because it was zippy.
+
+So how do you decide whether to use HTML mail or plain text email?  The simplest answer is to leverage a standard part of email technology to send _both_.  That way you'll make everyone happy!
+
+A more challenging issue, really, is around the features you leverage within the HTML of an HTML email.  Unfortunately there is no standard for this, and the various email clients vary wildly.  If you're a developer, I'm sure you won't be surprised to hear that Microsoft's products are, in general, the most "out there" of them all.  There are dozens and dozens of web sites devoted to all the nasty details of designing HTML emails.  After reading through way too many of them, I'll boil their advice down to three things:
+
+* Use tables for layout.
+* Stick with the simpler, older HTML constructs.
+* Don't expect JavaScript to work.
+
+== Some background on how email actually works
 
 When I first started working on this project, I had a mental model for email that turned out to be far, far too simple.  This section is a sort of primer on modern email, with an emphasis on the things that were new or surprising or unobvious to me.  Writing it all down helps embed it in my own mind, and may be useful for you, too.
 
@@ -45,19 +83,6 @@ Also I discovered that the mailbox part cannot be more than 64 characters long.
 
 All three address groups (To, CC, and BCC) can accept a number of email addresses, including zero (although if all three have no addresses your email isn't going _anywhere_!).  The maximum number of addressees in each group is dependent on the SMTP provider, and there doesn't seem to be any convention to this, much less a standard.  In every case I've seen personally, you can have well over 100 addresses in each of those address groups.  Some vendors (I'm looking at you, gmail!) limit the total number in all three, rather than having a limit in each address group.
 
-I tend to think of email addresses as belonging to a _person_, one individual -- but that is not always the case.  I've run into quite a few systems that use email addresses as identifiers, but this turns out to be quite problematic.  Here are some common circumstances that will illuminate why:
-
-* People change their email addresses.  I used to have a Yahoo email address, then I had a generic gmail address, and now I have a gmail address that's on my own domain.  How confusing!
-* People may have multiple email addresses (I have 11 at the moment, and have had as many as 30).
-* The email address may be for an email group, not an individual.  Many email servers support email groups.  Each member of the group has their own inbox, but if an email is received at the group's collective address, a copy of that email goes to each member of the group (and the sender has no way of knowing who actually gets that email).
-* The email address may be for a machine or system, and not a person at all.  There are many systems that use email for inter-process communications, especially where connectivity is spotty.  Some also use it as a way of getting input from users, and such a system is one of the main reasons I'm writing this package.
-* The email address may be shared.  I know several couples who have but a single email address, and they actually have a single inbox that both of them use.  Shared email addresses are especially common in organizations, as an alternative to an email group.
-* The email address may be for an organization, not an individual.  For instance, many companies have generic email addresses like `support@greenbanana.com` or `sales@rainmaker.com`.  These addresses may actually be for a group within the organization, it may be a shared inbox, or they may go to an individual -- and that individual may change over time.
-
-The upshot of this is that you really are not safe in thinking about an email address being some sort of unique identifier of a person.  The notions of identity and of email addresses are certainly connected, just not one-to-one -- it really is a many-to-many relationship.
-
-Why does this matter to you?  Well, if you're sending emails with personalized information, it means your system really should not use an email address as a unique identifier of a person (or organization, or machine).  For all the reasons above, your system should separate the notions of identities and email addresses, but maintain connections between them.
-
 ==== Subject
 
 This is the simplest component of an email, but even _it_ has its complications!  While there is no maximimum length that I could find, there is a practical limit: most inboxes on computer clients only show the first 50 or 60 characters of the subject line (generally truncating with an ellipsis, like `This is my WAY too long...`).  Many mobile email clients, when used on a phone, only show 20 or 25 characters.  These limits mean that short subject lines are definitely better, and that the information in them should be front-loaded, so that if some of the subject line _is_ truncated, the poor user can still figure out what the mail is about.
@@ -91,8 +116,8 @@ f.  The other image referred to by the HTML document.
 
 Here's what the MIME document looks like for the MIME tree outlined above, except that the encoded image data is elided to keep this to a reasonable length:
 ****
-MIME-Version: +
-1.0 Content-Type: multipart/alternative; boundary="[red]#----=_Part_1_1911152052.1618240895083#"
+MIME-Version: 1.0 +
+Content-Type: multipart/alternative; boundary="[red]#----=_Part_1_1911152052.1618240895083#"
 
 --[red]#----=_Part_1_1911152052.1618240895083# +
 Content-Type: text/plain; charset=UTF-8 +
@@ -136,13 +161,99 @@ Content-Disposition: inline +
 A few things worth noting in this:
 
 * The colored bits are boundary markers, which are between the pieces of a multipart node.  There are three boundary markers (in red) for the alternative multipart -- the first containing the plain text alternative, and the second the HTML alternative.  There are four boundary markers (in blue) within the HTML alternative, marking the boundaries of the three related leaf nodes: the HTML document and the two images.  This all looks like gobbledegook at first glance, but it's actually not hard to read or understand.
+* At the start of each MIME piece there are _MIME headers_.  These are all the lines after the boundary, but before the blank line.  These are how the type of each MIME piece is encoded.
 * The `<img/>` HTML tags have source URLs of the form "cis:<number>".  The "cis:" prefix is how the special URLs that refer to related items are formed.
 * Note how the HTML alternative comes _after_ the plain text alternative.  This order tells the email client to render the HTML alternative if it can, but to fall back to the plain text alternative if it cannot.
 
-
 ==== Headers
 
-== Email address format
+There's one more piece of an email, one that's invisible to a normal user reading an email on an email client, but that's very important to how email works: that's the email headers.  Here's an example taken from an actual email (with some private information changed):
+....
+Delivered-To: tom@dilatush.com
+Received: by 2002:ab3:1617:0:0:0:0:0 with SMTP id b23csp4814988lta;
+        Tue, 30 Mar 2021 14:10:04 -0700 (PDT)
+X-Received: by 2002:a9d:7e8d:: with SMTP id m13mr28412924otp.54.1617138603888;
+        Tue, 30 Mar 2021 14:10:03 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1617138603; cv=none;
+        d=google.com; s=arc-20160816;
+        b=LGXw4xpUCRqyqWE/z9KjgO5YBsk3unCauikBjNC92mJnQNMtC3CkBlkf6cGb/bv34E
+         OO8b+t2l7ZQGUFr1Ri9jb5NyfBxVmOJu58u+OR3h2eKM6GLL8Q+3rvqkBXXGB5fsAaKe
+         8SkqVzt9XYgMwxmaQqDs9s63LCKXxE50qkCZgKfk4WsT5z0TBCkq6qi6InI17uSb3qdP
+         qZlqTrG4DxDj0crOCm7wsRAU/JKdUAPLuUC9CMe0+okkearSbvLbhbmpETqd2cETTb6W
+         OlW3ub+YPPDprObTtGnZ3DgL6HJGAriF3wZyJQUm+rPyM6PmZbJg7jBbEdz/8HKNSHuN
+         naEQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20160816;
+        h=content-transfer-encoding:mime-version:subject:message-id:to:from
+         :date:dkim-signature;
+        bh=aNLzqLLf9B0IoZxm+ZlN89BgZuIGKLPQqRumylaJ5Uc=;
+        b=TuuOMEbi8RuKlw2a3yv9KUoQfXFL/jaX8h4R/nmzVnax09d5Kve8Zmk6ZFlSxuaD45
+         dKe49we2vHp7JCNVIJl/0ZMGxwH/0vL00FbnwI4/uaTuep/aXHbVSszeDrCAKGFSwdRl
+         WhjfG9AC4LU7N8++3Yher9BlytH3dS8V5/TQ1PQPHZHFvtf179lF7hQS6GGEAfBFpQT7
+         j8XAXCmybbUJguta6aC6f9XCq038pwy2xm9m9ez5FJawUAEEt4txvhb7Wua2jcq2g63h
+         5hXKGjmGjODwLdMPy/dASTDEZeguX950y3kf/4D/ZRILWTV/REQhaRIfbQR9JIrzzcv2
+         5DUg==
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@dilatush-com.20150623.gappssmtp.com header.s=20150623 header.b=N1A1lPUr;
+       spf=neutral (google.com: 209.85.220.41 is neither permitted nor denied by best guess record for domain of burger@theshack.com) smtp.mailfrom=burger@theshack.com
+Return-Path: <burger@theshack.com>
+Received: from mail-sor-f41.google.com (mail-sor-f41.google.com. [209.85.220.41])
+        by mx.google.com with SMTPS id a17sor18773otr.38.2021.03.30.14.10.03
+        for <tom@dilatush.com>
+        (Google Transport Security);
+        Tue, 30 Mar 2021 14:10:03 -0700 (PDT)
+Received-SPF: neutral (google.com: 209.85.220.41 is neither permitted nor denied by best guess record for domain of burger@theshack.com) client-ip=209.85.220.41;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@dilatush-com.20150623.gappssmtp.com header.s=20150623 header.b=N1A1lPUr;
+       spf=neutral (google.com: 209.85.220.41 is neither permitted nor denied by best guess record for domain of burger@theshack.com) smtp.mailfrom=burger@theshack.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=dilatush-com.20150623.gappssmtp.com; s=20150623;
+        h=date:from:to:message-id:subject:mime-version
+         :content-transfer-encoding;
+        bh=aNLzqLLf9B0IoZxm+ZlN89BgZuIGKLPQqRumylaJ5Uc=;
+        b=N1A1lPUrH7hF1ihsF3f617cR9lBZUzfAoi4wncvCHRKVTDsD2pSA+FBXAZ83F2c7kD
+         RjT6T6EgpjIwyyxudb+hPhUQjoCa8lfwTDIu27tNp49NFEQp3zsm9GRvw5SGVHz4JeT2
+         N7SlxGiJsVXZqjy64DgUgCR9VHNxCQK9S0CFY3erI4haWPUhuPbe8q6KAfZS/2vwyJyc
+         wUA6IE0bsziacsK8oz3epG6p+N8XgfhXkqvSuigRXlhxcQEp8GK6pjzxv6jJcH+4LIOL
+         qgCaJM0NRp6uP+9EBJEtU4CC61A7JdnE0ID4N5J+ECvenud+ZORGRnopE+OeWkLksYN3
+         nDOg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20161025;
+        h=x-gm-message-state:date:from:to:message-id:subject:mime-version
+         :content-transfer-encoding;
+        bh=aNLzqLLf9B0IoZxm+ZlN89BgZuIGKLPQqRumylaJ5Uc=;
+        b=CXwG4EwsA+h1ePlWDXJ5AOOUPWAf6rCkHboIhS/ozSvnIX+b1r5Pf80wNe9h7B0sOX
+         iSP+g5CfgDn4unTNw1DK17Xra6l3PHpr6PxuuMDOlR6DpkGs86MhE4GDxGmhRyiJzGVf
+         S72QTiuSDFXcTRnmJLCJx/CFEZqJbJhyUb45XF8lvD6bBik+ZwDboLKWplDgUWevGX6S
+         idjLvcgGzs8gaYQvDGh5LmF60SVXfEdIFFSr/1NSlIOTGrcA7Ah7fFb2CrjYoltyVw2G
+         2ft3a5cyTDcLN3I5U2phVN9OE8u9IeDBuDBlPBNKQlA+CacrjpwpqoYgg6ULP5GKxSYM
+         t48g==
+X-Gm-Message-State: AOAM531HlBFNlJwnM3v/HBFHHBkkCMjnyIg6c3HnsXPPNPRub6g7/iGw
+	voTxfL3vibDnVUOeew9EKfynigzWXq433sCW
+X-Google-Smtp-Source: ABdhPJzjEAunQnlgITeEtpfcDttOkSoMDk5Q1CfIJuKRdf83QNlYFehTeT6ML9LcVmKSN61gbl7Qpg==
+X-Received: by 2002:a9d:65c6:: with SMTP id z6mr28043870oth.232.1617138603203;
+        Tue, 30 Mar 2021 14:10:03 -0700 (PDT)
+Return-Path: <burger@theshack.com>
+Received: from 10.3.254.57 (c-71-199-18-153.hsd1.ut.comcast.net. [71.199.18.153])
+        by smtp.gmail.com with ESMTPSA id l191sm43088oih.16.2021.03.30.14.10.02
+        for <tom@dilatush.com>
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 30 Mar 2021 14:10:02 -0700 (PDT)
+Date: Tue, 30 Mar 2021 15:10:02 -0600 (MDT)
+From: Burger Empire <burger@theshack.com>
+To: tom@dilatush.com
+Message-ID: <1422222071.0.1617138602673@[10.3.254.57]>
+Subject: Test
+....
+A lot of these header fields are interesting; you can read about their meaning https://people.dsv.su.se/~jpalme/ietf/ietf-mail-attributes.html[here] (or do a little searching for the name of the header -- the part terminated by a colon(":")).  The headers are in reverse chronological order: the most recent headers appear first in the text.
+
+What I found most interesting was the way you can read the history of how an email was forwarded from one email server to another (headers are added at each hop).  For our purposes here, though, there are only a few that matter:
+
+* Date: The date and time that the message was written, which by default means when it was first transmitted to an SMTP server.
+* From: What email address the email was sent from.  This email address is where replies from the client would go to.
+* To: The email address this email is being sent to.
+* Message-ID: A unique identifier for this email.  This can be very useful for correlating a reply to the email that provoked it.
+* Subject: The subject line of the email.
+* Return-Path: The email address that bounced (undeliverable) emails are sent to.  The domain for this should be the same as the from address -- otherwise email providers may tag you as a spammer.
 
 == Definitions of terms used in this document
 
