@@ -255,11 +255,23 @@ What I found most interesting was the way you can read the history of how an ema
 * Subject: The subject line of the email.
 * Return-Path: The email address that bounced (undeliverable) emails are sent to.  The domain for this should be the same as the from address -- otherwise email providers may tag you as a spammer.
 
-== Definitions of terms used in this document
+== How _Email_ works
 
-_bulk email_: an email that is sent to multiple recipients.  This can be done either by addressing multiple recipients in a single email, or by sending an identical email to multiple recipients one at a time.  The defining characteristic of bulk email is that multiple recipients get the _identical_ email.
+=== Email providers
+_Email_ is configured with a list of email providers, with at least one provider being required for it to function.  For each provider, the configuration includes:
 
-_transactional email_: an email that is sent to a single recipient, and is customized for that recipient.  Transactional emails may include confidential information and recipient-specific links, attachments, text, graphics, etc.
+* The internal name of the provider, which acts as the "handle" by which the provider can be referenced.
+* The _Session_ properties for the provider (this includes credentials).
+* The limitations of the provider.  For example, if a provider only allows 500 free emails to be sent per day, that would be configured here.
+* The priority for the provider, indicating whether this provider is more or less preferable than other providers.
+
+
+
+=== Sending emails
+
+
+
+=== Receiving emails
 
 
 == Why does the world need Email?
