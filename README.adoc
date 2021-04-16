@@ -24,9 +24,9 @@ I tend to think of email addresses as belonging to a _person_, one individual --
 * The email address may be shared.  I know several couples who have but a single email address, and they actually have a single inbox that both of them use.  Shared email addresses are especially common in organizations, as an alternative to an email group.
 * The email address may be for an organization, not an individual.  For instance, many companies have generic email addresses like `support@greenbanana.com` or `sales@rainmaker.com`.  These addresses may actually be for a group within the organization, it may be a shared inbox, or they may go to an individual -- and that individual may change over time.
 
-The upshot of this is that you really are not safe in thinking about an email address being some sort of unique identifier of a person.  The notions of identity and of email addresses are certainly connected, just not one-to-one -- it really is a many-to-many relationship.
+The upshot of this is that it really isn't a good idea to think of an email address being some sort of unique identifier of a person.  The notions of identity and of email addresses are certainly connected, just not one-to-one -- it really is a many-to-many relationship.
 
-Why does this matter to you?  Well, if you're sending emails with personalized information, it means your system really should not use an email address as a unique identifier of a person (or organization, or machine).  For all the reasons above, your system should separate the notions of identities and email addresses, but maintain connections between them.
+Why does this matter to you?  Well, if you're sending emails with personalized information, it means your system really should not use an email address as a unique identifier of a person (or organization, or machine).  For all the reasons above, your system should separate the notions of identities and email addresses, but maintain many-to-many relationships between them.
 
 == Plain email versus HTML email
 
@@ -62,40 +62,58 @@ Many organizations host their own email servers, especially (and most unfortunat
 
 === The components of an email
 
-There are some basic components of email that we all are familiar with.  Well, that we all _think_ we're familiar with:
+There are some basic components of email that we all are familiar with.  Well, that we all _think_ we're familiar with, because we see them in our email inbox:
 
-* Address: The _To_, _CC_, and _BCC_ that together determine who receives the email.
+* Addresses: The _To_, _CC_, and _BCC_ that together determine who receives the email.
 * Subject: The brief little one-liner that is intended to give the recipient some clue about what the email concerns.
 * Body: The actual content of the email.
 
-==== Address
+That's not really how emails are put together, however.  In reality, there are just two parts to an email: the _headers_, and the _body_ (aka _message_):
 
-Most of us are by now quite familiar with these two valid formats:
-....
-mailbox@domain  (like "tom@dilatush.com")
-Display Name<mailbox@domain>  (like "Tom Dilatush<tom@dilatush.com>")
-....
+* The <<Headers>> are a series of fields that convey all sorts of information, including parts of the email itself (the addressees, the subject, etc.) and a sort of log of the email's passage through the Internet.
+* The <<Body (Message)>> contains the contents of the email as you see it when you open the email.  This _can_ be just plain text, but more often has MIME-encoded content including HTML, images, etc.
 
-It may surprise you to know that there are actually quite a few other details.  https://en.wikipedia.org/wiki/Email_address[Wikipedia] has a good article about them.
+==== Anatomy of an Email Address
 
-The biggest surprise for me was finding out that the mailbox part is technically case-sensitive -- so `tom@dilatush.com` and `Tom@dilatush.com` should be two independent email addresses.  I'm not sure I've ever seen that in the while, and apparently both server and client support is spotty, but there it is.
-Also I discovered that the mailbox part cannot be more than 64 characters long.
+Most of us are by now quite familiar with these two valid formats when an email address is contained in a string:
 
-All three address groups (To, CC, and BCC) can accept a number of email addresses, including zero (although if all three have no addresses your email isn't going _anywhere_!).  The maximum number of addressees in each group is dependent on the SMTP provider, and there doesn't seem to be any convention to this, much less a standard.  In every case I've seen personally, you can have well over 100 addresses in each of those address groups.  Some vendors (I'm looking at you, gmail!) limit the total number in all three, rather than having a limit in each address group.
+* `mailbox@domain`  (like `tom@dilatush.com`)
+* `Display Name<mailbox@domain>`  (like `Tom Dilatush<tom@dilatush.com>`)
+
+
+It may surprise you to know that there are actually quite a few other details, and some of which may surprise you.  https://en.wikipedia.org/wiki/Email_address[Wikipedia] has a good article about them.
+
+Some things that surprised me:
+
+* The mailbox part is technically case-sensitive -- so `tom@dilatush.com` and `Tom@dilatush.com` should be two independent email addresses.  I'm not sure I've ever seen that in the wild, and apparently both server and client support is spotty, but there it is.
+* A surprising variety of characters are totally legal in a mailbox name.  So, for example, the mailbox name `{Agent#91}` is totally ok.
+* Even _more_ characters are allowed if you quote the mailbox name with double quotes.  For instance, the mailbox name `"I..might..be..crazy!!!"` is fine, as is `"This is a valid mailbox name!@#$%^"`.
+* You can also escape individual characters with a backslash (the documents call that "quoted characters"):  `This\ mailbox\ name\ is\ fine.`
+* The mailbox part cannot be more than 64 characters long.
+
+==== To, CC, and BCC
+
+These three header fields together specify what email addresses should receive the email.  All three email address groups (To, CC, and BCC) can accept a number of email addresses, including zero (although if all three have no addresses your email isn't going _anywhere_!).  The format is simple enough: just a comma-separated list of email addresses formatted as described in <<Anatomy of an Email Address>>.  The maximum number of addressees in each group is dependent on the SMTP provider, and there doesn't seem to be any convention to this, much less a standard.  In every case I've seen personally, you can have well over 100 addresses in each of those address groups.  Some vendors (I'm looking at you, gmail!) limit the total number in all three, rather than having a limit in each address group.
+
+Most likely you're familiar with the behavior of To, CC, and BCC -- but just in case you're not, here's a summary.
+
+* To: All the email addresses on the "To" list are visible to everyone who receives the email.  On "Reply All", every email address on the "To" list receives a copy of the reply.
+* CC: All the email addresses on the "CC" list are visible to everyone who receives the email.  On "Reply All", every email address on the "CC" list receives a copy of the reply.  Note that the behavior of email addresses on the "CC" list is identical to that of the email addresses on the "To" list -- the "CC" lists exists as a cue to the human reader.  If his or her email address is on the "To" list, that's a cue that this email is directed toward them, and action may be expected.  If the email address is on the "CC" list, that's a cue that he or she is being sent a copy of the email just for their interest, and no action is expected.
+* BCC: All of the email addresses on the "BCC" list are invisible to everyone who receives the email.  On "Reply All", no email address on the "BCC" list receives a copy of the reply.  The "BCC" list primarily allows addressees to receive a copy of the email without the knowledge of the "To" or "CC" email addressees.  Sometimes it's also used to protect people from the horrifying consequences of "Reply All" email storms.
 
 ==== Subject
 
 This is the simplest component of an email, but even _it_ has its complications!  While there is no maximimum length that I could find, there is a practical limit: most inboxes on computer clients only show the first 50 or 60 characters of the subject line (generally truncating with an ellipsis, like `This is my WAY too long...`).  Many mobile email clients, when used on a phone, only show 20 or 25 characters.  These limits mean that short subject lines are definitely better, and that the information in them should be front-loaded, so that if some of the subject line _is_ truncated, the poor user can still figure out what the mail is about.
 
-HTML is not disallowed in the subject line, but I've never found an email client that would actually render it.  The RFCs that control email format _still_ specify the subject line as ASCII, but you can control the character encoding of an email, including on the subject line.  _Email_ defaults to UTF-8, but you can change that if you want something different.
+HTML is not specifically disallowed in the subject line, but I've never found an email client that would actually render it.  The RFCs that control email format _still_ specify the subject line as ASCII, but you can control the character encoding of an email, including on the subject line.  _Email_ defaults to UTF-8, but you can change that if you want something different.
 
-==== Body
+==== Body (Message)
 
 The body of a modern email can be just ridiculously complex.  This complexity was all enabled by a standard called https://en.wikipedia.org/wiki/MIME[MIME] (Multipurpose Internet Mail Extensions).  Prior to the advent of MIME, email bodies were just plain ASCII text -- ah, those were such simple days!  MIME basically standardizes a way of encoding things other than ASCII-encoded text _into_ plain ASCII-encoded text -- things such as HTML, images, audio, video, attachments, and much more.
 
 The body of a modern email can also be very simple: just a string of ASCII characters.  That's how email started out, and that sort of simple email actually still works just fine.  However, the result is not the fancy thing we're all used to in our email these days.
 
-Much more typical today -- and most likely, the kind of email you'd like to send -- is an email composed in HTML, perhaps with photographs, graphics, and possibly even videos.  You'd still want it to work for a recipient who had an email client that couldn't handle HTML, though.  You can do all of this by using MIME, which is fully supported by _Email_ and Jakarta Mail. Suppose, for instance, that you wanted to create an email that used HTML to format the body, with two _inline_ images (more on that later), and a plain text message for those recipients who couldn't read HTML email.  To do this, you'd create a tree of MIME nodes that looked like this:
+Much more typical today -- and most likely, the kind of email you'd like to send -- is an email composed in HTML, perhaps with photographs, graphics, and possibly even videos.  You'd still want it to work for a recipient who had an email client that couldn't handle HTML, though.  You can do all of this by using MIME, which is fully supported by _Email_ and Jakarta Mail (which _Email_ depends on). Suppose, for instance, that you wanted to create an email that used HTML to format the body, with two _inline_ images (more on that later), and a plain text message for those recipients who couldn't read HTML email.  To do this, you'd create a tree of MIME nodes that looked like this:
 ....
                (a) multipart: alternative
                    |                    |
@@ -164,6 +182,12 @@ A few things worth noting in this:
 * At the start of each MIME piece there are _MIME headers_.  These are all the lines after the boundary, but before the blank line.  These are how the type of each MIME piece is encoded.
 * The `<img/>` HTML tags have source URLs of the form "cis:<number>".  The "cis:" prefix is how the special URLs that refer to related items are formed.
 * Note how the HTML alternative comes _after_ the plain text alternative.  This order tells the email client to render the HTML alternative if it can, but to fall back to the plain text alternative if it cannot.
+
+===== Inline vs. Attachments
+
+In the example above, the images were _inlined_ - but what does that actually mean?  It means that the images will be treated as part of the HTML document, and will display within the document as determined by the `<img/>` tags and other layout directives.
+
+The alternative is to _attach_ the image, which _Email_ can also do, and which can sometimes have advantages.  Some email clients will display image attachments below the body of the email.  Others will make the user download the attachment and then open it with another application.  That may not sound wonderful, but if you're sending emails to people using email clients that cannot display HTML mail, it may actually be a useful thing.
 
 ==== Headers
 
