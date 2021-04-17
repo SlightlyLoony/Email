@@ -4,7 +4,7 @@
       <root url="jar://$PROJECT_DIR$/libs/jakarta.mail-2.0.1.jar!/" />
     </CLASSES>
     <JAVADOC>
-      <root url="https://eclipse-ee4j.github.io/mail/docs/api/jakarta.mail/" />
+      <root url="https://eclipse-ee4j.github.io/mail/docs/api/jakarta.mail" />
     </JAVADOC>
     <SOURCES />
   </library>

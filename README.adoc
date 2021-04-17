@@ -1,6 +1,6 @@
-== What is Email?
+== What is EmailService?
 
-_Email_ is general purpose email service provider module, handling both outbound and inbound emails.  It does _not_ provide an email service with SMTP, POP3, IMAP4, and so on; it relies on third-party providers such as GMail or Amazon SES for those.  It is _not_ a standalone program, but rather an embedded service provider with a programmatic interface that your code can call to send or receive email.
+_EmailService_ is general purpose email service provider module, handling both outbound and inbound emails.  It does _not_ provide an email service with SMTP, POP3, IMAP4, and so on; it relies on third-party providers such as GMail or Amazon SES for those.  It is _not_ a standalone program, but rather an embedded service provider with a programmatic interface that your code can call to send or receive email.
 
 
 == Ways that automatically transmitted emails are used
@@ -9,9 +9,13 @@ Probably the first thing that comes to mind with automated email are the marketi
 
 Automated emails aren't necessarily bulk emails, however -- they can be emails that are specific to a single email address.  For example, Amazon sends me confirmations of the orders that I've placed with them.  Those emails go only (I hope!) to me, and the content is specific to me.  The industry term for this sort of email is _transactional email_, because most often they are part of a transaction of some kind.  However, the key element that distinguishes transactional email from bulk eail is that the former is customized (or, if you will, _personalized_), and the latter is generic; identical for every recipient.
 
-It's worth noting that there really isn't a bright line between the two kinds of automated emails.  For example, I'm working toward providing automated weather report emails to our local community.  I'll likely end up with a few hundred subscribers.  Some of them will get simple text reports, some will get simple graphical reports (with images of thermometers, rain gauges, etc.), some will get detailed reports that include historical information, and some will get still other kinds of reports.  Perhaps I'll end up with a half dozen or so kinds of reports.  So does that mean I have a half dozen different bulk emails going out daily?  Or does it mean that I have transactional email that happens to have only a half dozen variations, instead of one per person?  It doesn't really matter except for one technical detail: you'll likely use different capabilities within _Email_ if you approach it as several kinds of bulk mail versus transactional email with a few variations.
+It's worth noting that there really isn't a bright line between the two kinds of automated emails.  For example, I'm working toward providing automated weather report emails to our local community.  I'll likely end up with a few hundred subscribers.  Some of them will get simple text reports, some will get simple graphical reports (with images of thermometers, rain gauges, etc.), some will get detailed reports that include historical information, and some will get still other kinds of reports.  Perhaps I'll end up with a half dozen or so kinds of reports.  So does that mean I have a half dozen different bulk emails going out daily?  Or does it mean that I have transactional email that happens to have only a half dozen variations, instead of one per person?  It doesn't really matter except for one technical detail: you'll likely use different capabilities within _EmailService_ if you approach it as several kinds of bulk mail versus transactional email with a few variations.
 
-While _Email_ certainly supports bulk mail, most of what it does is aimed at supporting transactional email -- the more complex of the two approaches.
+While _EmailService_ certainly supports bulk mail, most of what it does is aimed at supporting transactional email -- the more complex of the two approaches.
+
+== Ways that automated processing of received emails is used
+
+Automated processing of received emails (APRE) is relatively uncommon for consumer-focused applications, though I have used a few over the years.  Usually they're quite simple, for instance asking you to reply to an email with a key word in the subject line of your reply.  An automated system then picks up the reply and takes some action based on it.  I'm planning to use APRE for more in my own systems, mainly for remote administration.  _EmailService_ has simple support for APRE, mainly consisting of the ability to monitor multiple inboxes and forward received emails.
 
 == A bit about email addresses and identities
 
@@ -50,15 +54,15 @@ https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol[SMTP] (Simple Mail T
 
 === Email receiving protocols
 
-https://en.wikipedia.org/wiki/Post_Office_Protocol[POP3] (Post Office Protocol version 3) and https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol[IMAP] (Internet Message Access Protocol) are the only two in common use.  POP3 is far older and less capable (for instance, it knows nothing about folders), and probably really shouldn't be used anymore.  In _Email_ I'm using IMAP.
+https://en.wikipedia.org/wiki/Post_Office_Protocol[POP3] (Post Office Protocol version 3) and https://en.wikipedia.org/wiki/Internet_Message_Access_Protocol[IMAP] (Internet Message Access Protocol) are the only two in common use.  POP3 is far older and less capable (for instance, it knows nothing about folders), and probably really shouldn't be used anymore.  In _EmailService_ I'm using IMAP.
 
 === Email protocols in Java
 
-There are many projects out in the open-source world that implement some combination of SMTP, POP3, and IMAP, but there is one that absolutely dominates: https://www.oracle.com/java/technologies/javamail.html[JavaMail], actively developed at [Eclipse Foundation], who took over in 2017, and renamed it Jakarta Mail.  I've chosen Jakarta Mail (version 2.0.1) as the protocol implementation for _Email_.
+There are many projects out in the open-source world that implement some combination of SMTP, POP3, and IMAP, but there is one that absolutely dominates: https://www.oracle.com/java/technologies/javamail.html[JavaMail], actively developed at [Eclipse Foundation], who took over in 2017, and renamed it Jakarta Mail.  I've chosen Jakarta Mail (version 2.0.1) as the protocol implementation for _EmailService_.
 
 === Email providers
 
-Many organizations host their own email servers, especially (and most unfortunately) with Micrsoft Exchange (hit with https://krebsonsecurity.com/2021/03/at-least-30000-u-s-organizations-newly-hacked-via-holes-in-microsofts-email-software/[quite the hacker problem in 2021]).  Most individuals and smaller companies use third-party email providers, the dominant one of which is https://en.wikipedia.org/wiki/Gmail[gmail].  Any of these providers can be used with _Email_ so long as Jakarta Mail can be configured to support it -- and so far I've not found any email providers that Jakarta Mail _couldn't_ support.
+Many organizations host their own email servers, especially (and most unfortunately) with Micrsoft Exchange (hit with https://krebsonsecurity.com/2021/03/at-least-30000-u-s-organizations-newly-hacked-via-holes-in-microsofts-email-software/[quite the hacker problem in 2021]).  Most individuals and smaller companies use third-party email providers, the dominant one of which is https://en.wikipedia.org/wiki/Gmail[gmail].  Any of these providers can be used with _EmailService_ so long as Jakarta Mail can be configured to support it -- and so far I've not found any email providers that Jakarta Mail _couldn't_ support.
 
 === The components of an email
 
@@ -67,11 +71,12 @@ There are some basic components of email that we all are familiar with.  Well, t
 * Addresses: The _To_, _CC_, and _BCC_ that together determine who receives the email.
 * Subject: The brief little one-liner that is intended to give the recipient some clue about what the email concerns.
 * Body: The actual content of the email.
+* Attachments: Files that are transmitted along with the email.
 
 That's not really how emails are put together, however.  In reality, there are just two parts to an email: the _headers_, and the _body_ (aka _message_):
 
 * The <<Headers>> are a series of fields that convey all sorts of information, including parts of the email itself (the addressees, the subject, etc.) and a sort of log of the email's passage through the Internet.
-* The <<Body (Message)>> contains the contents of the email as you see it when you open the email.  This _can_ be just plain text, but more often has MIME-encoded content including HTML, images, etc.
+* The <<Body (Message)>> contains the contents of the email as you see it when you open the email.  This _can_ be just plain text, but more often has MIME-encoded content including HTML, inline images, attached files, etc.
 
 ==== Anatomy of an Email Address
 
@@ -105,7 +110,7 @@ Most likely you're familiar with the behavior of To, CC, and BCC -- but just in 
 
 This is the simplest component of an email, but even _it_ has its complications!  While there is no maximimum length that I could find, there is a practical limit: most inboxes on computer clients only show the first 50 or 60 characters of the subject line (generally truncating with an ellipsis, like `This is my WAY too long...`).  Many mobile email clients, when used on a phone, only show 20 or 25 characters.  These limits mean that short subject lines are definitely better, and that the information in them should be front-loaded, so that if some of the subject line _is_ truncated, the poor user can still figure out what the mail is about.
 
-HTML is not specifically disallowed in the subject line, but I've never found an email client that would actually render it.  The RFCs that control email format _still_ specify the subject line as ASCII, but you can control the character encoding of an email, including on the subject line.  _Email_ defaults to UTF-8, but you can change that if you want something different.
+HTML is not specifically disallowed in the subject line, but I've never found an email client that would actually render it.  The RFCs that control email format _still_ specify the subject line as ASCII, but you can control the character encoding of an email, including on the subject line.  _EmailService_ defaults to UTF-8, but you can change that if you want something different.
 
 ==== Body (Message)
 
@@ -113,7 +118,7 @@ The body of a modern email can be just ridiculously complex.  This complexity wa
 
 The body of a modern email can also be very simple: just a string of ASCII characters.  That's how email started out, and that sort of simple email actually still works just fine.  However, the result is not the fancy thing we're all used to in our email these days.
 
-Much more typical today -- and most likely, the kind of email you'd like to send -- is an email composed in HTML, perhaps with photographs, graphics, and possibly even videos.  You'd still want it to work for a recipient who had an email client that couldn't handle HTML, though.  You can do all of this by using MIME, which is fully supported by _Email_ and Jakarta Mail (which _Email_ depends on). Suppose, for instance, that you wanted to create an email that used HTML to format the body, with two _inline_ images (more on that later), and a plain text message for those recipients who couldn't read HTML email.  To do this, you'd create a tree of MIME nodes that looked like this:
+Much more typical today -- and most likely, the kind of email you'd like to send -- is an email composed in HTML, perhaps with photographs, graphics, and possibly even videos.  You'd still want it to work for a recipient who had an email client that couldn't handle HTML, though.  You can do all of this by using MIME, which is fully supported by _EmailService_ and Jakarta Mail (which _EmailService_ depends on). Suppose, for instance, that you wanted to create an email that used HTML to format the body, with two _inline_ images (more on that later), and a plain text message for those recipients who couldn't read HTML email.  To do this, you'd create a tree of MIME nodes that looked like this:
 ....
                (a) multipart: alternative
                    |                    |
@@ -187,7 +192,7 @@ A few things worth noting in this:
 
 In the example above, the images were _inlined_ - but what does that actually mean?  It means that the images will be treated as part of the HTML document, and will display within the document as determined by the `<img/>` tags and other layout directives.
 
-The alternative is to _attach_ the image, which _Email_ can also do, and which can sometimes have advantages.  Some email clients will display image attachments below the body of the email.  Others will make the user download the attachment and then open it with another application.  That may not sound wonderful, but if you're sending emails to people using email clients that cannot display HTML mail, it may actually be a useful thing.
+The alternative is to _attach_ the image, which _EmailService_ can also do, and which can sometimes have advantages.  Some email clients will display image attachments below the body of the email.  Others will make the user download the attachment and then open it with another application.  That may not sound wonderful, but if you're sending emails to people using email clients that cannot display HTML mail, it may actually be a useful thing.
 
 ==== Headers
 
@@ -279,20 +284,203 @@ What I found most interesting was the way you can read the history of how an ema
 * Subject: The subject line of the email.
 * Return-Path: The email address that bounced (undeliverable) emails are sent to.  The domain for this should be the same as the from address -- otherwise email providers may tag you as a spammer.
 
-== How _Email_ works
+== How _EmailService_ works
 
 === Email providers
-_Email_ is configured with a list of email providers, with at least one provider being required for it to function.  For each provider, the configuration includes:
+_EmailService_ is configured with a list of email providers, with at least one provider being required for it to function.  For each provider, the configuration includes:
 
 * The internal name of the provider, which acts as the "handle" by which the provider can be referenced.
 * The _Session_ properties for the provider (this includes credentials).
 * The limitations of the provider.  For example, if a provider only allows 500 free emails to be sent per day, that would be configured here.
 * The priority for the provider, indicating whether this provider is more or less preferable than other providers.
 
-
-
 === Sending emails
 
+When you want to send email through _EmailService_, you create an _EmailSpec_ that contains the following:
+
+* A list of [0..n] _EmailProperties_ instances, each of which has:
+** A name, unique for each instance.
+** Any number of named string properties.
+* A list of _EmailAddressee_ instances, each of which specifies:
+** The _EmailAddress_ to send the email to.
+** The list (To, CC, or BCC) that the email address should appear on.
+** The name of the _EmailProperties_ to use.  This may be absent, in which case no email properties are used.  If the name is present, it refers to the _EmailProperties_ instance with that name.
+* The _EmailDocument_, defined in detail in <<The Email Document>>.
+
+You might note that nothing above specifies images or attached files.  That's because those items are potentially large enough that they can use a problematic amount of memory and network resources.  Instead, the _EmailDocument_ contains the information required to let _EmailService_ stream the data from a file, a web site, or from the email document itself.  There's much more detail on these mechanisms in <<The Email Document>> section.
+
+The combination of _EmailProperties_ and _EmailAddressee_, together with automatic modification of the _EmailDocument_ allows for great flexibility, handling all these cases:
+
+* Simple bulk email, where a list of email addresses all receive the identical document.  In this case, there may be no _EmailProperties_ at all, and the _EmailAddressee_ instances just specify the email address and what list they are to appear on.
+* Pure transactional email, where a list of email addresses each receive an email with different information.  In this case, there will be a unique _EmailProperties_ instance associated with each _EmailAddressee_, and the properties in _EmailProperties_ will be used to modify the _EmailDocument_ as appropriate for each individual recipient.  Alternatively there could be no _EmailProperties_ and just a single _EmailAddressee_, with a custom _EmailDocument_ created for that single addressee.
+* Variant email (a term I made up), where a list of email addresses each receive one of some number of variations of an email.  For instance, a list of people might get daily weather reports, but the weather reports might come in several variations: one just text, one with graphical gauges reporting current conditions, and another more elaborate that includes historical data in graphs.  In this case there will be a unique _EmailProperties_ for each variation, and each _EmailAddressee_ will specify the _EmailProperties_ with the variation to use for that email address.
+
+==== Content Sources
+When _EmailService_ needs to read content (for example, for inlined images), it does so from a named content source that has been configured.  Each content source has the following attributes:
+
+* Name: must be unique across all content sources.
+* Type: one of the following:
+** File
+** Web
+* Location: a string with the location of the content source.
+** For file sources, the full path to the base directory.  Specific content files have paths relative to the base directory.  For instance, `/content/contracts` might be a location.
+** For web sources, the URL to the base web location. Specific contents have paths relative to that base web locations, or are queries to that web location, or both.  For example, `\https://accounts.burger.com/contracts` might be a location.
+
+==== The Email Document
+
+The _EmailDocument_ is a string containing a modified form of HTML with a few custom tags and some other special capabilities, all of which are described in detail in the sections following.
+
+===== Includes
+The `<include-file/>` tag probably does exactly what you'd expect it to do.  It has only one attribute: `src="URL"`, and that attribute specifies the URL (which may be one of the <<Special URLs>>) from which the text (encoded in UTF-8) to be included is read.  Here's a simple example, first showing the document as composed -- before the `<include-file/>` tag is processed:
+....
+<html><body><include-file src="https://bog.standard.com/includes/abc.html"/></body></html>
+....
+Then after the tag is processed, it is replaced with what was read from a GET on `\https://bog.standard.com/includes/abc.html`:
+....
+<p>
+   Today's topic is "How to tell a giraffe from a mouse."
+</p>
+....
+After _EmailService_ processes the `<include-file/>` tag, the resulting _EmailDocument_ looks like this:
+....
+<html><body><p>
+   Today's topic is "How to tell a giraffe from a mouse."
+</p></body></html>
+....
+The `<include-file/>` tag may appear anywhere in the _EmailDocument_, even in places where a tag wouldn't ordinarily be valid.  For instance:
+....
+<plain-text<include-file src="http://bogus.com/weird.html"/>
+....
+That include will actually work, and assuming the resulting _EmailDocument_ is valid, the resulting document will work.
+
+Note that the `<include-file/>` tag is (and must be) self-closing (ends with `/>`).  It can appear any number of times within the _EmailDocument_, and it can be nested (that is, an included document fragment may itself have `<include-file/>` tags).  _EmailService_ will process all `<include-file/>` tags, including nested tags, before any other processing is done.
+
+=====  Property Value Substitutions
+If the _EmailDocument_ contains any strings in the form `:::property name:::` (we'll call that a PSUB), that string will be replaced with the value of the _EmailProperty_ for the _EmailAddressee_ being processed.  For example, if the _EmailDocument_ contained a sentence like this:
+....
+   Hi, :::friendly first name:::!  Thank you for shopping with us!
+....
+And for a given user there is an _EmailProperty_ named "friendly first name" with a value of "Tom", then after the property value substitutions are processed that sentence will look like this:
+....
+   Hi, Tom!  Thank you for shopping with us!
+....
+Text substitutions like these are pretty obvious, but there's a very useful purpose for them that's _not_ simple text substitutions like this -- customizing URLs.  For example, suppose you are sending an HTML mail to your customers, and you want to include a link to their account.  Your HTML email might contain an anchor tag like this:
+....
+<a href="https://burger.com/account/summary.html?acct=:::acct:::">Click here to see your account.</a>
+....
+Then each _EmailAddressee_ will have an _EmailProperty_ named `acct` that contains that addressee's account number (let's say `KDL99123` for our example).  After the property value substitutions are processed, that anchor tag would look like this:
+....
+<a href="https://burger.com/account/summary.html?acct=KDL99123">Click here to see your account.</a>
+....
+PSUBs can appear anywhere in an _EmailDocument_, and any number of them may be used (including PSUBs with identical property names).  PSUBs may even be nested (that is, the value of a PSUB may itself include PSUBs).  PSUBs are the second thing processed when an _EmailDocument_ is processed, right after includes.
+
+===== Conditional Tags
+Conditional tags allow blocks of an _EmailDocument_ to be included or excluded based on the value of an _EmailProperty_.  Here's a simple example to illustrate the idea with an if/else/endif construct, using the _EmailProperty_ named "status":
+....
+<plain-text>
+   <es-if property="status" value="paid">
+      Thank your for your prompt payment!
+   <es-else/>
+      Pay up right now, you bum!
+   </es-if>
+</plain-text>
+....
+What's above is the _EmailDocument_ as composed.  Note that the `<es-if>` tag must be closed with the usual `</es-if>` tag -- but the `<es-else/>` tag is self-closed.  After _EmailService_ processes the conditional tags, if the status property for a given user had the value "paid", the _EmailDocument_ would look like this:
+....
+<plain-text>
+      Thank your for your prompt payment!
+</plain-text>
+....
+The switch/case/endcase construct works very similarly.  Before conditionals processing:
+....
+<html><body><p>
+   <es-switch property="status">
+      <es-case value="paid">
+         Thank you for your prompt payment!
+      </es-case>
+      <es-case value="balance due">
+         We would appreciate your prompt payment on the balance due.
+      </es-case>
+      <es-case value="overdue">
+         Pay up right now, you bum!
+      </es-case>
+      <es-case default>
+         Uh, sorry, but we have no idea what to say.
+      </es-case>
+   </es-switch>
+</p></body></html>
+....
+If the value of "status" was "balance due", the _EmailDocument_ after conditionals processing would look like this:
+....
+<html><body><p>
+         We would appreciate your prompt payment on the balance due.
+</p></body></html>
+....
+Note the `<es-case default>` tag -- that case would be included if no other case conditions were true.
+
+Conditional tags may appear almost anywhere in the _EmailDocument_, and any number of them may be present.  If the property they reference does not exist for a particular _EmailAddressee_, then _EmailService_ will _not_ send an email (but will return an error for that addressee).  Conditional tags are the third step in processing an _EmailDocument_, immediately after property substitutions.
+
+===== Plain Text Section
+This tag is very straightforward.  An example:
+....
+<plain-text>
+    Here is the plain text message I want displayed in my email for recipients that don't have HTML clients.
+</plain-text>
+....
+That's really all there is to it.  This tag may appear only once in an _EmailDocument_, and only at the top level.
+
+===== HTML Section
+This tag encloses the block of conventional HTML (optionally including the special tags for
+<<Inlined elements>> like images, audio, and video).  An example:
+....
+<html>
+  <body>
+    <p style="color:red;">This is a very <i>simple</i> example of what I might put in my HTML email.
+    </p>
+    <p>It's pretty boring, admittedly.
+    </p>
+  </body>
+</html>
+....
+There's plenty of help on the web for composing HTML email.  A few examples https://templates.mailchimp.com/development/html/[here], https://www.copernica.com/en/documentation/how-to-create-a-responsive-html-email-from-scratch[here], and https://www.creativebloq.com/netmag/how-create-great-looking-responsive-html-emails-81412552[here].  This tag may appear only once in an _EmailDocument_, and only at the top level.
+
+===== Attachments
+This tag tells _EmailService_ to attach a file to the email, with the specified file name, getting the data for the file from the specified source.  Note that the data is read by _EmailService_, not the email recipient.  That means the data source _must_ be accessible to _EmailService_, but it doesn't have to be accessible to the email recipient.  An example:
+....
+<attached-file name="burger.doc" src="https://internal.burger.com/secret_burger_formula.doc"/>
+<attached-file name="bun.doc" src="file:///home/bilbo/bunrecipe.doc"/>
+....
+This tag may appear any number of times (including zero), but only at the top level.  Note that it is (and must be) a self-closing tag (ends with `/>`).  The example shows the sources as convention URLs, but the <<Special URLs>> may be used as well.
+
+===== Inlined elements
+The HTML section can include `<img>`, `<audio>`, and `<video>` tags just like a web page, and these will work the same way (but be aware that many email clients to not yet support the `<audio>` and `<video>` tags).  When you include these tags, the data will come from the URL you specify as the source, which usually is a publicly accessible web site.  For most users, that means there will be a bit of a delay between the time they open the email and the time the image appears (or the audio can be heard, or the video played).  Often, especially for images, this delay is undesirable.  You can avoid this delay by including the source of data _in_ the email -- this is called _inlining_.  The way you do that with _EmailService_ is by using one of the special tags `<inline-img>`, `<inline-audio`>, or `<inline-video>`.  You compose your HTML using these tags exactly you would the non-inlined version, except that the source URL (which may be one of the <<Special URLs>>) will be read by _EmailService_ and the data from the source attached to the email.  Once the inline data has been read, _EmailService_ will convert the tag to the non-inlined version, keeping all the attributes except the `src` attribute, which will be converted to a special reference to the inlined data.  All that sounds terribly complicated, but it's actually pretty simple.  Here's an example as composed in the _EmailDocument_:
+....
+<html><body>
+  <inline-img src="file:///home/tom/dog.jpg" width="10"/>
+</body></html>
+....
+And this is what it looks like after _EmailService_ has read the data and converted the tag.  In other words, this is what's actually transmitted to the email's recipient:
+....
+<html><body>
+  <img src="cid:1" width="10"/>
+</body></html>
+....
+That funny-looking `src="cid:1"` is a special form of URL that email clients understand -- this one tells the email client to get the image data from the attachment named "1", which is where _EmailService_ put the data that it read from `\file:///home/tom/dog.jpg`.  Note that the `width="10"` attribute was kept in the tag sent to the email recipient.
+
+The special inline tags may appear anywhere inside the HTML section where a non-inlined tag of the same type could be used.
+
+===== Special URLs
+For any of the special _EmailService_ tags (for includes, inlined elements, and attachments), the `src` URL can be either a standard URL (like `https://`, `http://`, or `file://`) or it can be the special content source URL that has this form:
+....
+cs://<content source name>/<relative path or query>
+....
+For example, suppose you've configured _EmailService_ with a content source named `aardvark`, with a type of `Web`, and a location of `\https://receipts.paradise.com`.  You're sending an email to an _EmailAddressee_ with _EmailProperties_ containing a property named "receipt_id" with a value of "98887200272352".  Your _EmailDocument_ might contain the following:
+....
+<inline-img src="cs://aardvark/receipt?id=:::receipt_id:::"/>
+....
+After all the processing is completed, _EmailService_ will read the data from the URL `\https://receipts.paradise.com/receipt?id=98887200272352`, and generate an image tag like `<img{nbsp}src="cis:1"/>` to send in the email.
+
+//TODO: add an example of a complete email document that has all the features described above...
 
 
 === Receiving emails
@@ -300,7 +488,7 @@ _Email_ is configured with a list of email providers, with at least one provider
 
 == Why does the world need Email?
 
-I'm not sure the world actually does need _Email_, but I sure did!  I wanted to integrate email with some of my own applications that do these things:
+I'm not sure the world actually does need _EmailService_, but I sure did!  I wanted to integrate email with some of my own applications that do these things:
 
 * Send transactional emails.  For instance, personalized weather reports, system status to administrators, etc.  For these emails, I need more than just the email address -- I need some way to get the personalized content.
 * Send bulk emails.  For instance, daily weather reports.
@@ -310,7 +498,7 @@ Then once I started to actually implement these functions, I realized that I wan
 
 == Dependencies
 
-_Email_ has several dependencies:
+_EmailService_ has several dependencies:
 
 * _Util_ is a utilities module the author also wrote, freely available from https://github.com/SlightlyLoony/Util[here].
 * _JSON_ is the bog-standard Java JSON module, freely available from https://github.com/stleary/JSON-java[here].
@@ -323,7 +511,7 @@ The author is a retired software and hardware engineer who did this just for fun
 
 == Transfer directories
 
-_Email_ has the ability to send and receive emails with attachments.  When sending email attachments, the attachment data can come from either an object on a web server (via a URL) or a file in a _transfer directory_ that is readable by _Email_ (and in the case of an automatically deleting transfer directory, it must also be writable by _Email_.  When receiving email attachments, the data must go to a transfer directory that is writable by _Email_.  Transfer directories are specified by the _Email_ configuration file.
+_EmailService_ has the ability to send and receive emails with attachments.  When sending email attachments, the attachment data can come from either an object on a web server (via a URL) or a file in a _transfer directory_ that is readable by _EmailService_ (and in the case of an automatically deleting transfer directory, it must also be writable by _EmailService_.  When receiving email attachments, the data must go to a transfer directory that is writable by _EmailService_.  Transfer directories are specified by the _EmailService_ configuration file.
 
 Each transfer directory has several attributes:
 [cols="<,<"]
@@ -357,7 +545,7 @@ Attachments are specified with the custom `<attach-file/>` tag, via the `src` at
 
 == Some notes on receiving emails
 
-When _Email_ receives emails, it extracts the text from the plain text if possible.  If the email only has text in an HTML part, it extracts that text instead.  The text extracted (from either source) is then processed through an ordered list of _email routing rules_ that identify where the received email should be sent.  If no routing rule matches, the received email is logged and discarded.  If the sender (as identified in the email headers via IP address) is logged into an email session, then there will be a dynamic routing rule (processed before any static rules) that identifies where the email should be sent.
+When _EmailService_ receives emails, it extracts the text from the plain text if possible.  If the email only has text in an HTML part, it extracts that text instead.  The text extracted (from either source) is then processed through an ordered list of _email routing rules_ that identify where the received email should be sent.  If no routing rule matches, the received email is logged and discarded.  If the sender (as identified in the email headers via IP address) is logged into an email session, then there will be a dynamic routing rule (processed before any static rules) that identifies where the email should be sent.
 
 When an email _does_ match an email routing rule, several things happen:
 

@@ -3,7 +3,9 @@
     <CLASSES>
       <root url="jar://$PROJECT_DIR$/libs/jakarta.activation-2.0.1.jar!/" />
     </CLASSES>
-    <JAVADOC />
+    <JAVADOC>
+      <root url="https://eclipse-ee4j.github.io/jaf/docs/api/jakarta.activation" />
+    </JAVADOC>
     <SOURCES />
   </library>
 </component>
