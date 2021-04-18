@@ -291,7 +291,7 @@ _EmailService_ is configured with a list of email providers, with at least one p
 
 * The internal name of the provider, which acts as the "handle" by which the provider can be referenced.
 * The _Session_ properties for the provider (this includes credentials).
-* The limitations of the provider.  For example, if a provider only allows 500 free emails to be sent per day, that would be configured here.
+* The capabilities of the provider (SMTP, POP3, IMAP)
 * The priority for the provider, indicating whether this provider is more or less preferable than other providers.
 
 === Sending emails
@@ -325,6 +325,11 @@ When _EmailService_ needs to read content (for example, for inlined images), it 
 * Location: a string with the location of the content source.
 ** For file sources, the full path to the base directory.  Specific content files have paths relative to the base directory.  For instance, `/content/contracts` might be a location.
 ** For web sources, the URL to the base web location. Specific contents have paths relative to that base web locations, or are queries to that web location, or both.  For example, `\https://accounts.burger.com/contracts` might be a location.
+* Mode: one of the following:
+** `READ_ONLY` (or `GET`): A read-only content source, usable for sending attachments but not for receiving them.  After a resource is read from this content source, the resource remains and could be read again.
+** `READ_AUTO` (or `GET` followed by `DELETE`: An automatically deleting read-only content source, usable for sending attachments but not for receiving them.  After a resource is read from this content source, it is automagically deleted.
+** `READ_WRITE` (or `GET` and `PUT`): A read/write content source, usable for both sending and receiving attachments.
+** `WRITE_ONLY` (or `PUT`): A write-only content source, usable for receiving attachments, but not for sending them.
 
 ==== The Email Document
 
@@ -395,28 +400,52 @@ The switch/case/endcase construct works very similarly.  Before conditionals pro
 ....
 <html><body><p>
    <es-switch property="status">
-      <es-case value="paid">
+         Greetings!
+      <es-case value="paid"/>
          Thank you for your prompt payment!
-      </es-case>
-      <es-case value="balance due">
+      <es-case value="balance due"/>
          We would appreciate your prompt payment on the balance due.
-      </es-case>
-      <es-case value="overdue">
+      <es-case value="overdue"/>
          Pay up right now, you bum!
-      </es-case>
-      <es-case default>
+      <es-case default/>
          Uh, sorry, but we have no idea what to say.
-      </es-case>
    </es-switch>
 </p></body></html>
 ....
 If the value of "status" was "balance due", the _EmailDocument_ after conditionals processing would look like this:
 ....
 <html><body><p>
+         Greatings!
          We would appreciate your prompt payment on the balance due.
 </p></body></html>
 ....
-Note the `<es-case default>` tag -- that case would be included if no other case conditions were true.
+Some notes:
+
+* The `<es-case default/>` tag -- that case would be included if no other case conditions were true.
+* All `<es-case value="..."/>` tags that evaluate as true are included.  For now that could only happen of multiple tags had the same value, but in the future I may add an option for expression evaluation -- in which case multiple different expressions might all evaluate as true.
+* The text (if any) between the `<es-switch property="..."/>` tag and the first `<es-case value="..."/>` tag is always included.
+* The `<es-case .../>` tags are (and must be) self-closing (ending with `/>`).
+
+Conditional tags (both _if_ and _switch_) may be nested, like this:
+....
+<plain-text>
+   <es-if property="status" value="paid">
+      <es-if property="whale" value="yes">
+        Bless you, oh magnificent customer, for your prompt and large payment!!!
+      <es-else/>
+        Thank your for your prompt payment!
+      </es-if>
+   <es-else/>
+      Pay up right now, you bum!
+   </es-if>
+</plain-text>
+....
+Specifically, the following nestings are allowed (and others disallowed):
+
+* An if/else/endif may be nested inside an if/else or an else/endif.
+* A switch/case/endswitch may be nested inside an if/else or an else/endif.
+* An if/else/endif may be nested inside a switch/case, case/case or a case/endswitch.
+* A switch/case/endswitch may be nested inside a switch/case, case/case or a case/endswitch.
 
 Conditional tags may appear almost anywhere in the _EmailDocument_, and any number of them may be present.  If the property they reference does not exist for a particular _EmailAddressee_, then _EmailService_ will _not_ send an email (but will return an error for that addressee).  Conditional tags are the third step in processing an _EmailDocument_, immediately after property substitutions.
 
@@ -493,7 +522,7 @@ I'm not sure the world actually does need _EmailService_, but I sure did!  I wan
 * Send transactional emails.  For instance, personalized weather reports, system status to administrators, etc.  For these emails, I need more than just the email address -- I need some way to get the personalized content.
 * Send bulk emails.  For instance, daily weather reports.
 
-Then once I started to actually implement these functions, I realized that I want my email to work with multiple third-party providers -- for reliability, lower cost, and sometimes for features.  For example, if I have 5000 transactional emails per month, I can send chunks of that to four or five providers, staying below the "now you have to pay" thresholds on all of them.  If I sent them all via a single provider, I'd have to pay for most of them.
+Then once I started to actually implement these functions, I realized that I want my email to work with multiple third-party providers -- for reliability, lower cost, and sometimes for features.
 
 
 == Dependencies
@@ -502,56 +531,12 @@ _EmailService_ has several dependencies:
 
 * _Util_ is a utilities module the author also wrote, freely available from https://github.com/SlightlyLoony/Util[here].
 * _JSON_ is the bog-standard Java JSON module, freely available from https://github.com/stleary/JSON-java[here].
-* _Jakarta Mail_ is the bog-standard Java email provider, freely available from https://eclipse-ee4j.github.io/mail/[here].  It's dependency the Jakarta Activation package is available https://eclipse-ee4j.github.io/jaf/[here].
+* _Jakarta Mail_ is the bog-standard Java email API, freely available from https://eclipse-ee4j.github.io/mail/[here].  It's dependency the Jakarta Activation package is available https://eclipse-ee4j.github.io/jaf/[here].
 * _JSoup_ is an open-source Java HTML parser, available https://jsoup.org/[here].
 
 == Why is Email's code so awful?
 
 The author is a retired software and hardware engineer who did this just for fun, and who (so far, anyway) has no code reviewers to upbraid him. Please feel free to fill in this gap! You may contact the author at link:mailto:[tom@dilatush.com].
-
-== Transfer directories
-
-_EmailService_ has the ability to send and receive emails with attachments.  When sending email attachments, the attachment data can come from either an object on a web server (via a URL) or a file in a _transfer directory_ that is readable by _EmailService_ (and in the case of an automatically deleting transfer directory, it must also be writable by _EmailService_.  When receiving email attachments, the data must go to a transfer directory that is writable by _EmailService_.  Transfer directories are specified by the _EmailService_ configuration file.
-
-Each transfer directory has several attributes:
-[cols="<,<"]
-|===
-|Attribute Name |Purpose
-
-|name |The short name of the transfer directory.  This name is for human reference only, and is not part of the path to the directory.  It must follow the general rules of an identifier (on word, letters, numerals, and underscore).
-|path |The absolute path to the transfer directory.  This path _must_ begin with a `/`.
-|mode |The mode (`READ_ONLY`, `READ_WRITE`, `WRITE_ONLY`, or `READ_AUTO`) for the transfer directory.  See below for details)
-|===
-
-The possible operational modes:
-
-* `READ_ONLY` : A read-only transfer directory, usable for sending attachments but not for receiving them.  After an attachment is sent from this directory, the file remains in the directory.
-* `READ_AUTO` : An automatically deleting read-only transfer directory, usable for sending attachments but not for receiving them.  After an attachment is sent from this directory, the file is automagically deleted.
-* `READ_WRITE`: A read/write transfer directory, usable for both sending and receiving attachments.
-* `WRITE_ONLY`: A write-only transfer directory, usable for receiving attachments, but not for sending them.
-
-== Some notes on email formatting when sending
-
-The subject line and plain text email bodies are straightforward: they're encoded in UTF-8, and there are no other considerations.
-
-HTML mail bodies have some important additional features: the ability to embed inline images, and the ability to embed attachments.  In both cases the actual data to be embedded can come from either of two places:
-
-* _Web Server_: This is specified with an ordinary URL, starting with either `http://` or `https://` that addresses the image or file to be embedded.  If the specified URL is invalid (for any reason, including that the addressed object does not exist), an error will occur when attempting to send the email.  Note that objects read from a web server may be dynamically generated; there is no requirement that they be a static resource.
-* _Transfer Directory_: This is specified with a special transfer URL, starting with `transfer://<transfer directory name>/<relative path>`, that specifies the transfer directory and relative path within the transfer directory to the object being inlined or attached.  If the file path is invalid (for any reason, including that the addressed object does not exist), an error will occur when attempting to send the email.  For example, the URL `transfer://horse/grooming.doc` refers to an object within the transfer directory named `horse` in a file named `grooming.doc`.  Transfer directories may contain subdirectories to any depth, so the URLs may be arbitrarily long.
-
-Inline embedded images are specified in an `<img/>` tag, via the `src` attribute.  For example, the tag `<img width="10" src="https://something.com/excellent.jpg"/>` specifies an embedded image that will be read from the given URL.  All the rest of the details of embedding the image are handled by the email sender.  It's worth noting that if a given image is used multiple times in the email, it will only be embedded once.
-
-Attachments are specified with the custom `<attach-file/>` tag, via the `src` attribute.  For example, the tag `attach-file src="file://horse/dropzone/excellent.doc" />` will attach a file named `excellent.doc` (the `.auto` part is stripped).  Note that `<attach-file/>` tags are deleted from the HTML that is actually sent in the email.
-
-== Some notes on receiving emails
-
-When _EmailService_ receives emails, it extracts the text from the plain text if possible.  If the email only has text in an HTML part, it extracts that text instead.  The text extracted (from either source) is then processed through an ordered list of _email routing rules_ that identify where the received email should be sent.  If no routing rule matches, the received email is logged and discarded.  If the sender (as identified in the email headers via IP address) is logged into an email session, then there will be a dynamic routing rule (processed before any static rules) that identifies where the email should be sent.
-
-When an email _does_ match an email routing rule, several things happen:
-
-* A standard MOP message (the _email received_ message) is constructed.  This message contains the sender's reported 'from' address, the subject line, the text extracted from the body of the email, the number of attachments (which of course may be zero), the session ID (if the email is part of a session), and the IP address of the sender.  This message will be addressed according to the routing rule, which specifies the destination post office and mailbox.
-
-* If there are any attachments, they are stored in a temporary directory created for each received email, and stored in the transfer directory specified in the matched email routing rule.  The attachments are stored in that directory, with the name given to them in the email.  The temporary directory name is added to the email received message.
 
 == How is Email licensed?
 
