@@ -315,6 +315,14 @@ The combination of _EmailProperties_ and _EmailAddressee_, together with automat
 * Pure transactional email, where a list of email addresses each receive an email with different information.  In this case, there will be a unique _EmailProperties_ instance associated with each _EmailAddressee_, and the properties in _EmailProperties_ will be used to modify the _EmailDocument_ as appropriate for each individual recipient.  Alternatively there could be no _EmailProperties_ and just a single _EmailAddressee_, with a custom _EmailDocument_ created for that single addressee.
 * Variant email (a term I made up), where a list of email addresses each receive one of some number of variations of an email.  For instance, a list of people might get daily weather reports, but the weather reports might come in several variations: one just text, one with graphical gauges reporting current conditions, and another more elaborate that includes historical data in graphs.  In this case there will be a unique _EmailProperties_ for each variation, and each _EmailAddressee_ will specify the _EmailProperties_ with the variation to use for that email address.
 
+==== Email Properties
+As discussed in the preceding section, there are any number of named collections of named email properties associated with any email being sent.  The following rules apply to the names of both the collections and the _EmailProperties_:
+
+* The names must start with a letter (upper or lower case), and otherwise must be composed of letters, numbers, and underscores.  No other characters are allowed.
+* The names must be at least one character long, but no longer than 32 characters.
+* The names must be unique within their scope.  Specifically, every collection of email properties must have a unique name, and every property within a collection must have a unique name.
+* The values of all properties are strings, but they may be string representations of numbers, and treated as such in a <<Test Expression>>.
+
 ==== Content Sources
 When _EmailService_ needs to read content (for example, for inlined images), it does so from a named content source that has been configured.  Each content source has the following attributes:
 
@@ -358,6 +366,15 @@ The `<include-file/>` tag may appear anywhere in the _EmailDocument_, even in pl
 ....
 That include will actually work, and assuming the resulting _EmailDocument_ is valid, the resulting document will work.
 
+Property value substitutions are allowed within the source URL of an `<include-file/>` tag, like this:
+....
+<include-file src="https://invoice.bigcompany.com/invoice?client=:::client_id:::"/>
+....
+If the `client_id` property of a particular _EmailAddressee_ had the value `88278823`, then after property value substitution (but before the URL was referenced), the line would look like this:
+....
+<include-file src="https://invoice.bigcompany.com/invoice?client=88278823"/>
+....
+
 Note that the `<include-file/>` tag is (and must be) self-closing (ends with `/>`).  It can appear any number of times within the _EmailDocument_, and it can be nested (that is, an included document fragment may itself have `<include-file/>` tags).  _EmailService_ will process all `<include-file/>` tags, including nested tags, before any other processing is done.
 
 =====  Property Value Substitutions
@@ -377,51 +394,47 @@ Then each _EmailAddressee_ will have an _EmailProperty_ named `acct` that contai
 ....
 <a href="https://burger.com/account/summary.html?acct=KDL99123">Click here to see your account.</a>
 ....
-PSUBs can appear anywhere in an _EmailDocument_, and any number of them may be used (including PSUBs with identical property names).  PSUBs may even be nested (that is, the value of a PSUB may itself include PSUBs).  PSUBs are the second thing processed when an _EmailDocument_ is processed, right after includes.
+PSUBs can appear anywhere in an _EmailDocument_, and any number of them may be used (including PSUBs with identical property names).  PSUBs may even be nested (that is, the value of a PSUB may itself include PSUBs).  PSUBs are the second thing processed when an _EmailDocument_ is processed, right after includes (though include URLs may contain PSUBs - see <<Includes>>).
 
 ===== Conditional Tags
 
-// TODO: document stack-based algorithm for conditional evaluation
-// TODO: remove property/value tests; use expressions instead
-// TODO: if/else/endif has entire expression, like "status='paid'"
-// TODO: document property names being letters, numbers, underscores
-// TODO: use single quotes for string literals
-// TODO: allow numeric expressions by prefacing property name with "#", like "#balance > 1000"
-// TODO: allow property value substitutions in expressions (and also include URLs)
-// TODO: allow parentheses in expressions to control precedence; otherwise left-to-right
-
-Conditional tags allow blocks of an _EmailDocument_ to be included or excluded based on the value of an _EmailProperty_.  Here's a simple example to illustrate the idea with an if/else/endif construct, using the _EmailProperty_ named "status":
+Conditional tags allow blocks of an _EmailDocument_ to be included or excluded based on the result of an test expression based on one or more _EmailProperties_.  Here's a simple example to illustrate the idea with an if/else/endif construct, using the _EmailProperty_ named "status":
 ....
 <plain-text>
-   <es-if property="status" value="paid">
+   <es-if test="status = 'paid'">
       Thank your for your prompt payment!
    <es-else/>
       Pay up right now, you bum!
    </es-if>
 </plain-text>
 ....
-What's above is the _EmailDocument_ as composed.  Note that the `<es-if>` tag must be closed with the usual `</es-if>` tag -- but the `<es-else/>` tag is self-closed.  After _EmailService_ processes the conditional tags, if the status property for a given user had the value "paid", the _EmailDocument_ would look like this:
+What's above is the _EmailDocument_ as composed.  Note that the `<es-if>` tag must be closed with the usual `</es-if>` tag -- but the optional `<es-else/>` tag is self-closed.  After _EmailService_ processes the conditional tags, if the status property for a given user had the value "paid", the _EmailDocument_ would look like this:
 ....
 <plain-text>
       Thank your for your prompt payment!
 </plain-text>
 ....
+
+See <<Test Expression>> for (much) more detail about how those test expressions work.
+
 The switch/case/endcase construct works very similarly.  Before conditionals processing:
 ....
 <html><body><p>
-   <es-switch property="status">
+   <es-switch>
          Greetings!
-      <es-case value="paid"/>
+      <es-case test="status = 'paid'"/>
          Thank you for your prompt payment!
-      <es-case value="balance due"/>
+      <es-case test="status = 'balance due'"/>
          We would appreciate your prompt payment on the balance due.
-      <es-case value="overdue"/>
+      <es-case test"status = 'overdue'"/>
          Pay up right now, you bum!
       <es-case default/>
          Uh, sorry, but we have no idea what to say.
    </es-switch>
 </p></body></html>
 ....
+The test expressions in the `<case test="..."/>` tags are evaluated in the order that they appear in the _EmailDocument_.  When one of them tests _true_, then the following block (terminated either by the next `<case test="..."/>` tag or the `</es-switch>` tag) is included, and all the other blocks following other `<case test="..."/>` tags is excluded.
+
 If the value of "status" was "balance due", the _EmailDocument_ after conditionals processing would look like this:
 ....
 <html><body><p>
@@ -431,16 +444,15 @@ If the value of "status" was "balance due", the _EmailDocument_ after conditiona
 ....
 Some notes:
 
-* The `<es-case default/>` tag -- that case would be included if no other case conditions were true.
-* All `<es-case value="..."/>` tags that evaluate as true are included.  For now that could only happen of multiple tags had the same value, but in the future I may add an option for expression evaluation -- in which case multiple different expressions might all evaluate as true.
-* The text (if any) between the `<es-switch property="..."/>` tag and the first `<es-case value="..."/>` tag is always included.
-* The `<es-case .../>` tags are (and must be) self-closing (ending with `/>`).
+* The `<es-case default/>` tag defines the case tat would be included if no other case test expressions evaluated to _true_.
+* The text (if any) between the `<es-switch>` tag and the first `<es-case test="..."/>` tag is always included.
+* The `<es-case test="..."/>` tags are (and must be) self-closing (ending with `/>`).
 
 Conditional tags (both _if_ and _switch_) may be nested, like this:
 ....
 <plain-text>
-   <es-if property="status" value="paid">
-      <es-if property="whale" value="yes">
+   <es-if test="status = paid">
+      <es-if test="whale = yes">
         Bless you, oh magnificent customer, for your prompt and large payment!!!
       <es-else/>
         Thank your for your prompt payment!
@@ -458,6 +470,44 @@ Specifically, the following nestings are allowed (and others disallowed):
 * A switch/case/endswitch may be nested inside a switch/case, case/case or a case/endswitch.
 
 Conditional tags may appear almost anywhere in the _EmailDocument_, and any number of them may be present.  If the property they reference does not exist for a particular _EmailAddressee_, then _EmailService_ will _not_ send an email (but will return an error for that addressee).  Conditional tags are the third step in processing an _EmailDocument_, immediately after property substitutions.
+
+// TODO: document stack-based algorithm for conditional evaluation
+
+===== Test Expression
+Test expressions are used in <<Conditional Tags>>, and they must evaluate to a boolean value (_true_ or _false_) that is used to control a conditional tag.  The following elements may appear in a test expression:
+
+* *Email property names*: any unquoted string that starts with a letter (upper or lower case) is treated as a property name.  When the expression is evaluated, the property's _value_ is substituted for its name.  Most of the time the expression evaluator can infer whether the property's value should be handled as a string value or as a numeric value.  On those occasions when it cannot make the inference, it defaults to handling the value as a string value - but if the property name is suffixed with a hash (`#`), then it will be handled as a numeric value.
+* *String literals*: Any string surrounded by single quotes (like burger in `I loved that 'burger'!`) is a string literal.  If you need to use a single quote inside of a string literal, preface it with a backslash, like this: `'I loved that \'burger\'!'`.  String literals may include any characters other than a newline.
+* *Numeric literals*: Any unquoted sequence of numbers is a numeric literal.  The sequence may include a single decimal point.  A negative number may be indicated by any one of leading minus sign, a trailing minus sign, or surrounding parentheses.  A numeric literal may not include any whitespace.  Some examples of valid numeric literals: `12`, `.002`, `53.`, `-99.3`, `79.300-`, `(44.32)`.  The string `1 300.32` is not valid, as there's a space.  Similarly, `a34` and `44b` are not valid because there are non-numeric characters.
+* *Parentheses*: As you'd expect, if you put parentheses around a subexpression, that indicates a high precedence for the subexpression.  Without parentheses, the expression evaluator evaluates strictly left-to-right - so use parentheses liberally!
+* *Square brackets*: Any expression can include a single instance of an integer (positive or negative) inside square brackets.  The integer indicate the precision of numeric results.  The integer indicates the power of ten to round to.  For instance, a -2 means round to the nearest 10^-2, or 0.01.  Similarly, a 3 indicates rounding to the nearest 10^3, or 1000.
+* *Operators*: These are discussed detail in the table below.
+
+[cols="1,5a"]
+|===
+|Operator |Explanation
+
+|+|The left side and the right side must either both be strings, or both be numeric.  In the case of strings, the strings are concatenated.  For instance, if the value of the property `alpha` is 'yogurt', then the result of `alpha + 'bet'` is `'yogurtbet'`.  In the case of numeric values, the values are added.  For example, if the value of the property `amount` is 124, then the result of `amount + 45.2` is 169.2.
+|-|The left side and the right side must both be numeric values, and the result is the left side minus the right side.  For instance, if the value of `payment` is 245.45 then the result of `245.45 - payment` is zero.
+|*|The left side and the right side must both be numeric values, and the result is the product of the left side and the right side.  For instance, if the value of `interest` is 0.04 and the value of `balance` is 34.50, then the result of `balance * (1 + interest)` is 35.88.  Note the use of parentheses to force `1 + interest` to evaluate first.
+|/|The left side and the right side must both be numeric values, and the result is the quotient of the left side divided by the right side.  The square bracket precision notation is particularly useful with division, as the result can easily have many decimals.  For example, if the value of the property `total` is 7362.34, then the result of `total / 12[-2]` is 613.53.
+|=|Evaluates to `true` if the value of the left side is _equal_ to the value of the right side.  For instance, `status = 'paid'` would evaluate to `true` if the value of the `status` property was `'paid'`.
+|!=|Evaluates to `true` if the value of the left side is _not equal_ to the value of the right side.  For instance, `due != 0` would evaluate to `true` if the value of the `due` property was `3.45` (or any other non-zero value).
+|>|Evaluates to `true` if the value of the left side is _greater than_ the value of the right side.  For numbers, that means if the left side is a number larger than the right side, the result is `true`.  An example: `balance > 100` would evaluate to `true` if the value of `balance` is more than 100.  For strings, it's a bit tricker: the left side is compared to the right side with Java's `Collator.compare()`, and the result of that is used to determine which side is greater (meaning, _after_ in sort order).  For instance, `name > 'Smith'` would evaluate to `true` if the value of `name` would come after `Smith` in collation order.  The collation order may value with the language or locale.
+|<|Evaluates to `true` if the value of the left side is _less than_ the value of the right side.  All the comments about numeric and string values for `>` apply for this operator as well.
+|>=|Evaluates to `true` if the value of the left side is _greater than or equal to_ the value of the right side.  All the comments about numeric and string values for `>` apply for this operator as well.
+|\<=|Evaluates to `true` if the value of the left side is _less than or equal to_ the value of the right side.  All the comments about numeric and string values for `>` apply for this operator as well.
+|&|Evaluates to `true` if both the subexpression on the left side _and_ the subexpression on the right side evaluate to `true`.  Note that this operator _must_ have a subexpression on both sides, not a string or numeric example.  For example:
+....
+(balance > 0) & (status != 'current')
+....
+The `balance > 0` is a subexpression that evaluates to either `true` or `false`, as is `status != 'current'`.  The parentheses around each subexpression are _required_ so that the subexpressions will evaluate before the `&` operator is evaluated.  The end result: if a particular _EmailAddressee_ had a balance owed, _and_ the account status was not current, then this expression would evaluate to `true`.
+|\||Evaluates to `true` if either the subexpression on the left side _or_ the subexpression on the right side evaluate to `true`.  The comments about `&` also apply for this operator.
+|^|Evaluates to `true` if either the subexpression on the left side _or_ the subexpression on the right side evaluate to `true`, but _not both_ (the "exclusive or" function).  The comments about `&` also apply for this operator.
+|===
+
+// TODO: section on configuration?  Must include locale (for collation, if nothing else)
+
 
 ===== Plain Text Section
 This tag is very straightforward.  An example:
