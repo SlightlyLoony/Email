@@ -380,6 +380,16 @@ Then each _EmailAddressee_ will have an _EmailProperty_ named `acct` that contai
 PSUBs can appear anywhere in an _EmailDocument_, and any number of them may be used (including PSUBs with identical property names).  PSUBs may even be nested (that is, the value of a PSUB may itself include PSUBs).  PSUBs are the second thing processed when an _EmailDocument_ is processed, right after includes.
 
 ===== Conditional Tags
+
+// TODO: document stack-based algorithm for conditional evaluation
+// TODO: remove property/value tests; use expressions instead
+// TODO: if/else/endif has entire expression, like "status='paid'"
+// TODO: document property names being letters, numbers, underscores
+// TODO: use single quotes for string literals
+// TODO: allow numeric expressions by prefacing property name with "#", like "#balance > 1000"
+// TODO: allow property value substitutions in expressions (and also include URLs)
+// TODO: allow parentheses in expressions to control precedence; otherwise left-to-right
+
 Conditional tags allow blocks of an _EmailDocument_ to be included or excluded based on the value of an _EmailProperty_.  Here's a simple example to illustrate the idea with an if/else/endif construct, using the _EmailProperty_ named "status":
 ....
 <plain-text>
