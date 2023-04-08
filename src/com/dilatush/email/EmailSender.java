@@ -14,6 +14,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -342,9 +343,5 @@ public class EmailSender {
             msg.setRecipients( Message.RecipientType.BCC, _bcc );
         msg.setSubject( _message.subject(), "UTF-8" );
         return msg;
-    }
-
-
-    public static void main( final String[] _args ) throws AddressException, IOException {
     }
 }
